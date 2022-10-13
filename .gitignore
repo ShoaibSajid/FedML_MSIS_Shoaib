@@ -4,6 +4,7 @@
 .vscode/*
 *.pkl
 
+runs/*
 python/app/fedcv/object_detection/runs/*
 python/app/fedcv/object_detection/log/*
        

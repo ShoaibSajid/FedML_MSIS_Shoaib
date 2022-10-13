@@ -1,0 +1,11 @@
+path: /home/gpuadmin/Project/FedML/BDD
+train: /home/gpuadmin/Project/FedML/BDD/train_20K.txt  #hackathon_train.txt   #train_5K.txt
+val: /home/gpuadmin/Project/FedML/BDD/val_1K.txt
+test: images/test/test_bdd.txt
+
+
+nc: 13
+
+names: ['car', 'bus', 'truck', 'motorcycle', 'bicycle', 
+        'trailer', 'train', 'rider', 'pedestrian', 'traffic light',
+        'traffic sign', 'other vehicle', 'other person']
