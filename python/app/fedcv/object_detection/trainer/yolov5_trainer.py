@@ -9,13 +9,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from tqdm import tqdm
+from model.yolov5.models.common import DetectMultiBackend
 
 import fedml
 from fedml.core import ClientTrainer
 from model.yolov5.utils.loss import ComputeLoss
-from model.yolov5.utils.general import non_max_suppression, xywh2xyxy, scale_coords
-from model.yolov5.utils.metrics import ConfusionMatrix, ap_per_class, box_iou
-
+from model.yolov5.utils.general import Profile, non_max_suppression, xywh2xyxy, scale_coords
+from model.yolov5.utils.metrics import ConfusionMatrix, yolov5_ap_per_class, ap_per_class, box_iou
+from fedml.core.mlops.mlops_profiler_event import  MLOpsProfilerEvent
+from model.yolov5 import val as validate # imported to use original yolov5 validation function!!!
+ 
 
 def process_batch(detections, labels, iouv):
     """
@@ -63,14 +67,14 @@ class YOLOv5Trainer(ClientTrainer):
         logging.info("set_model_params")
         self.model.load_state_dict(model_parameters)
 
-    def train(self, train_data, device, args):
-        logging.info("Start training on Trainer {}".format(self.id))
+    def train(self, train_data, test_data, device, args):
+        host_id = int(list(args.client_id_list)[1])
+        logging.info("Start training on Trainer {}".format(host_id))
         logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
         model = self.model
         self.round_idx = args.round_idx
         args = self.args
         hyp = self.hyp if self.hyp else self.args.hyp
-
         epochs = args.epochs  # number of epochs
 
         pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
@@ -129,7 +133,7 @@ class YOLOv5Trainer(ClientTrainer):
             model.train()
             t = time.time()
             batch_loss = []
-            logging.info("Trainer_ID: {0}, Epoch: {1}".format(self.id, epoch))
+            logging.info("Trainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
 
             for (batch_idx, batch) in enumerate(train_data):
                 imgs, targets, paths, _ = batch
@@ -168,35 +172,48 @@ class YOLOv5Trainer(ClientTrainer):
 
             epoch_loss.append(copy.deepcopy(mloss.cpu().numpy()))
             logging.info(
-                f"Trainer {self.id} epoch {epoch} box: {mloss[0]} obj: {mloss[1]} cls: {mloss[2]} total: {mloss.sum()} time: {(time.time() - t)}"
+                f"Trainer {host_id} epoch {epoch} box: {mloss[0]} obj: {mloss[1]} cls: {mloss[2]} total: {mloss.sum()} time: {(time.time() - t)}"
             )
 
             logging.info("#" * 20)
 
-            logging.info(
-                f"Trainer {self.id} epoch {epoch} time: {(time.time() - t)}s batch_num: {batch_idx} speed: {(time.time() - t)/batch_idx} s/batch"
+            try:
+                logging.info(
+                    f"Trainer {host_id} epoch {epoch} time: {(time.time() - t)}s batch_num: {batch_idx} speed: {(time.time() - t)/batch_idx} s/batch"
+                )
+            except:
+                pass
+            logging.info("#" * 200)
+            
+            MLOpsProfilerEvent.log_to_wandb(
+                {
+                    f"client_{host_id}_round_idx": self.round_idx,
+                    f"client_{host_id}_box_loss": np.float(mloss[0]),
+                    f"client_{host_id}_obj_loss": np.float(mloss[1]),
+                    f"client_{host_id}_cls_loss": np.float(mloss[2]),
+                    f"client_{host_id}_total_loss": np.float(mloss.sum())
+                }
             )
-            logging.info("#" * 20)
 
             if (epoch + 1) % self.args.checkpoint_interval == 0:
                 model_path = (
                     self.args.save_dir
                     / "weights"
-                    / f"model_client_{self.id}_epoch_{epoch}.pt"
+                    / f"model_client_{host_id}_epoch_{epoch}.pt"
                 )
                 logging.info(
-                    f"Trainer {self.id} epoch {epoch} saving model to {model_path}"
+                    f"Trainer {host_id} epoch {epoch} saving model to {model_path}"
                 )
                 torch.save(model.state_dict(), model_path)
 
             if (epoch + 1) % self.args.frequency_of_the_test == 0:
-                logging.info("Start val on Trainer {}".format(self.id))
-                self.val(train_data, device, args)
+                logging.info("Start val on Trainer {}".format(host_id))
+                self.val(test_data, device, args)
 
-        logging.info("End training on Trainer {}".format(self.id))
+        logging.info("End training on Trainer {}".format(host_id))
         torch.save(
             model.state_dict(),
-            self.args.save_dir / "weights" / f"model_client_{self.id}.pt",
+            self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt",
         )
 
         # plot for client
@@ -219,13 +236,14 @@ class YOLOv5Trainer(ClientTrainer):
             self.round_loss = np.array(self.round_loss)
             # logging.info(f"round_loss shape: {self.round_loss.shape}")
             logging.info(
-                f"Trainer {self.id} round {self.round_idx} finished, round loss: {self.round_loss}"
+                f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}"
             )
 
         return
 
-    def val(self, train_data, device, args):
-        logging.info(f"Trainer {self.id} val start")
+    def val(self, test_data, device, args):
+        host_id = int(list(args.client_id_list)[1])
+        logging.info(f"Trainer {host_id} val start")
         model = self.model
         self.round_idx = args.round_idx
         args = self.args
@@ -273,22 +291,20 @@ class YOLOv5Trainer(ClientTrainer):
                 model.names if hasattr(model, "names") else model.module.names
             )
         }
+        dt = Profile(), Profile(), Profile()
         seen = 0
-
-        for (batch_idx, batch) in enumerate(train_data):
+        pbar = tqdm(test_data, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+        for (batch_idx, batch) in enumerate(pbar):
             (im, targets, paths, shapes) = batch
             im = im.to(device, non_blocking=True).float() / 255.0
             targets = targets.to(device)
             nb, _, height, width = im.shape  # batch size, channels, height, width
 
             # inference
-            with torch.no_grad():
+            with torch.no_grad(): 
                 preds, train_out = model(im)
             loss += compute_loss(train_out, targets)[1]  # box, obj, cls
-
-            targets[:, 2:] *= torch.tensor(
-                (width, height, width, height), device=device
-            )  # to pixels
+            targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
             lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)]
             preds = non_max_suppression(
                 preds,
@@ -303,28 +319,19 @@ class YOLOv5Trainer(ClientTrainer):
             # Metrics
             for si, pred in enumerate(preds):
                 labels = targets[targets[:, 0] == si, 1:]
-                nl, npr = (
-                    labels.shape[0],
-                    pred.shape[0],
-                )  # number of labels, predictions
+                nl, npr = (labels.shape[0],pred.shape[0])  # number of labels, predictions
                 path, shape = Path(paths[si]), shapes[si][0]
-                correct = torch.zeros(
-                    npr, niou, dtype=torch.bool, device=device
-                )  # init
+                correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
                 seen += 1
 
                 if npr == 0:
                     if nl:
-                        stats.append(
-                            (correct, *torch.zeros((2, 0), device=device), labels[:, 0])
-                        )
+                        stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
                     continue
 
                 # Predictions
                 predn = pred.clone()
-                scale_coords(
-                    im[si].shape[1:], predn[:, :4], shape, shapes[si][1]
-                )  # native-space pred
+                scale_coords(im[si].shape[1:], predn[:, :4], shape, shapes[si][1])  # native-space pred
 
                 # Evaluate
                 if nl:
@@ -348,9 +355,19 @@ class YOLOv5Trainer(ClientTrainer):
             )
             ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
             mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+            MLOpsProfilerEvent.log_to_wandb(
+            {
+                f"client_{host_id}_mean_precision": np.float(mp),
+                f"client_{host_id}_mean_recall":np.float(mr),
+                f"clinet_{host_id}_mAP@50":np.float(map50),
+                f"client_{host_id}_mAP@0.5:0.95":np.float(map)       
+            }
+        )
         nt = np.bincount(
             stats[3].astype(int), minlength=nc
         )  # number of targets per class
+        
+        
 
         # Print results
         logging.info(s)

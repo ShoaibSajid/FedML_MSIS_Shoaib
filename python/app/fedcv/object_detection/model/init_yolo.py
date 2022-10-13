@@ -108,6 +108,7 @@ def init_yolo(args, device="cpu"):
         data_dict = yaml.load(f, Loader=yaml.FullLoader)  # data dict
     train_path = data_dict["train"]
     test_path = data_dict["val"]
+    
     nc, names = (
         (1, ["item"]) if args.single_cls else (int(data_dict["nc"]), data_dict["names"])
     )  # number classes, names

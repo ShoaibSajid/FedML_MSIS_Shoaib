@@ -331,7 +331,10 @@ class DetectMultiBackend(nn.Module):
                 names = yaml.safe_load(f)['names']
 
         if pt:  # PyTorch
-            model = attempt_load(weights if isinstance(weights, list) else w, device=device)
+            import sys
+            sys.path.append(str("/home/gpuadmin/Project/FedML/python/app/fedcv/object_detection"))  
+            model = torch.load(w, map_location=device) if ("aggr" in w) else attempt_load(weights if isinstance(weights, list) else w, device=device)
+            # model = attempt_load(weights if isinstance(weights, list) else w, device=device)
             stride = max(int(model.stride.max()), 32)  # model stride
             names = model.module.names if hasattr(model, 'module') else model.names  # get class names
             model.half() if fp16 else model.float()

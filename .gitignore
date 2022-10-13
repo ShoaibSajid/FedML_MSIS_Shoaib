@@ -4,6 +4,9 @@
 .vscode/*
 *.pkl
 
+python/app/fedcv/object_detection/runs/*
+python/app/fedcv/object_detection/log/*
+       
 data/*
 python/tests/smoke_test/data
 python/tests/smoke_test/data/*

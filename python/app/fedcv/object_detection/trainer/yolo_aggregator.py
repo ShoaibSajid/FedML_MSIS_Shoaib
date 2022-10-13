@@ -13,6 +13,7 @@ from model.yolov5.utils.general import (
 from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import ap_per_class
 from fedml.core import ServerAggregator
+from fedml.core.mlops.mlops_profiler_event import MLOpsProfilerEvent
 
 
 class YOLOAggregator(ServerAggregator):
@@ -22,9 +23,22 @@ class YOLOAggregator(ServerAggregator):
     def set_model_params(self, model_parameters):
         logging.info("set_model_params")
         self.model.load_state_dict(model_parameters)
-
+        #self._test(self, self.test_data, self.device)
+        #try:
+        # aggr_model_path = (
+        #             self.args.save_dir
+        #             / "weights"
+        #             / f"model_aggr_{self.args.comm_round}.pt"
+        #         )
+        # torch.save(
+        #     self.model.state_dict(),
+        #     aggr_model_path,
+        #     )
+        # #except:
+        # logging.info(f"\nOOOOOOOOOOOOOOOOOOOO| Aggregator saves aggregated weights {self.args.comm_round}|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n")
     def test(self, test_data, device, args):
-        pass
+        self._test(test_data=test_data, device=device)
+        #pass
 
     def _test(self, test_data, device):
         logging.info("Evaluating on Trainer ID: {}".format(self.id))
@@ -224,6 +238,17 @@ class YOLOAggregator(ServerAggregator):
                 f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
             }
         )
+        
+        MLOpsProfilerEvent.log_to_wandb(
+            {
+                f"round_idx": self.round_idx,
+                f"test_mp": np.float(mp),
+                f"test_mr": np.float(mr),
+                f"test_map50": np.float(map50),
+                f"test_map": np.float(map),
+                f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
+            }
+        )
 
         test_metrics = {
             "test_correct": 0,
@@ -243,6 +268,6 @@ class YOLOAggregator(ServerAggregator):
                 logging.info(f"Saving model at round {self.round_idx}")
                 torch.save(
                     self.model,
-                    self.args.save_dir / "weights" / f"model_{self.round_idx}.pt",
+                    self.args.save_dir / "weights" / f"aggr_model_{self.round_idx}.pt",
                 )
         return True

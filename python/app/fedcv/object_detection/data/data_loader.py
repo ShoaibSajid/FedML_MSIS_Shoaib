@@ -144,6 +144,7 @@ def create_dataloader(
     loader = (
         DataLoader if image_weights else InfiniteDataLoader
     )  # only DataLoader allows for attribute updates
+    logging.info(f"\nNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
     return (
         loader(
             dataset,
@@ -876,13 +877,24 @@ def load_partition_data_coco(args, hyp, model):
     #     pad=0.5,
     #     workers=args.worker_num,
     # )[0]
+    
+    test_dataloader_global = create_dataloader(
+        test_path,
+        imgsz_test,
+        total_batch_size,
+        gs,
+        hyp=hyp,
+        rect=True,
+        pad=0.5,
+        workers=args.worker_num,
+    )[0]
 
-    # test_data_num = test_dataloader_global.dataset.data_size
+    test_data_num = test_dataloader_global.dataset.data_size
 
     train_data_num = 0
-    test_data_num = 0
+    # test_data_num = 0
     train_dataloader_global = None
-    test_dataloader_global = None
+    # test_dataloader_global = None
 
     if args.process_id == 0:  # server
         pass
