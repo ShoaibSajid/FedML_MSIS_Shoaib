@@ -21,6 +21,10 @@ cd FedML/python/app/fedcv/[image_classification, image_segmentation, object_dete
 cd config/
 bash bootstrap.sh
 
+pip install opencv-python==4.5.5.64
+apt-get install ffmpeg libsm6 libxext6  -y
+apt-get install libgl1
+
 cd ..
 ```
 

@@ -87,6 +87,14 @@ def init_yolo(args, device="cpu"):
         args.total_batch_size,
         args.weights,
     )
+    
+    # Load Optimizer parameters
+    with open(args.yolo_opt) as f:
+        opt = yaml.load(f,Loader=yaml.FullLoader)
+    
+    #logging.info(f"Optimizers parameters {opt}")
+    
+    args.opt = opt  
 
     # Directories
     wdir = save_dir / "weights"

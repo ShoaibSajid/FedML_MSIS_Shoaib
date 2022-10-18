@@ -11,7 +11,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from utils.general import colorstr, cv2, emojis
-from utils.loggers.wandb.wandb_utils import WandbLogger
+#from utils.loggers.wandb.wandb_utils import WandbLogger
 from utils.plots import plot_images, plot_results
 from utils.torch_utils import de_parallel
 
@@ -68,25 +68,25 @@ class Loggers():
             self.logger.info(emojis(s))
 
         # TensorBoard
-        s = self.save_dir
-        if 'tb' in self.include and not self.opt.evolve:
-            prefix = colorstr('TensorBoard: ')
-            self.logger.info(f"{prefix}Start with 'tensorboard --logdir {s.parent}', view at http://localhost:6006/")
-            self.tb = SummaryWriter(str(s))
+        # s = self.save_dir
+        # if 'tb' in self.include and not self.opt.evolve:
+        #     prefix = colorstr('TensorBoard: ')
+        #     self.logger.info(f"{prefix}Start with 'tensorboard --logdir {s.parent}', view at http://localhost:6006/")
+        #     self.tb = SummaryWriter(str(s))
 
-        # W&B
-        if wandb and 'wandb' in self.include:
-            wandb_artifact_resume = isinstance(self.opt.resume, str) and self.opt.resume.startswith('wandb-artifact://')
-            run_id = torch.load(self.weights).get('wandb_id') if self.opt.resume and not wandb_artifact_resume else None
-            self.opt.hyp = self.hyp  # add hyperparameters
-            self.wandb = WandbLogger(self.opt, run_id)
-            # temp warn. because nested artifacts not supported after 0.12.10
-            if pkg.parse_version(wandb.__version__) >= pkg.parse_version('0.12.11'):
-                self.logger.warning(
-                    "YOLOv5 temporarily requires wandb version 0.12.10 or below. Some features may not work as expected."
-                )
-        else:
-            self.wandb = None
+        # # W&B
+        # if wandb and 'wandb' in self.include:
+        #     wandb_artifact_resume = isinstance(self.opt.resume, str) and self.opt.resume.startswith('wandb-artifact://')
+        #     run_id = torch.load(self.weights).get('wandb_id') if self.opt.resume and not wandb_artifact_resume else None
+        #     self.opt.hyp = self.hyp  # add hyperparameters
+        #     self.wandb = WandbLogger(self.opt, run_id)
+        #     # temp warn. because nested artifacts not supported after 0.12.10
+        #     if pkg.parse_version(wandb.__version__) >= pkg.parse_version('0.12.11'):
+        #         self.logger.warning(
+        #             "YOLOv5 temporarily requires wandb version 0.12.10 or below. Some features may not work as expected."
+        #         )
+        # else:
+        #     self.wandb = None
 
     def on_train_start(self):
         # Callback runs on train start

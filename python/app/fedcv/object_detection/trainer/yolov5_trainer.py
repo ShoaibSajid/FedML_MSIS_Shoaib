@@ -19,6 +19,8 @@ from model.yolov5.utils.general import Profile, non_max_suppression, xywh2xyxy, 
 from model.yolov5.utils.metrics import ConfusionMatrix, yolov5_ap_per_class, ap_per_class, box_iou
 from fedml.core.mlops.mlops_profiler_event import  MLOpsProfilerEvent
 from model.yolov5 import val as validate # imported to use original yolov5 validation function!!!
+from model.yolov5.utils.loggers import Loggers
+from model.yolov5.utils.general import (LOGGER, check_amp, check_dataset, check_file, check_img_size, check_yaml, colorstr)
  
 
 def process_batch(detections, labels, iouv):
@@ -71,7 +73,9 @@ class YOLOv5Trainer(ClientTrainer):
         host_id = int(list(args.client_id_list)[1])
         logging.info("Start training on Trainer {}".format(host_id))
         logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
+        LOGGER.info(colorstr('hyperparameters: ')+ ', '.join(f'{k}={v}' for k, v in self.hyp.items()))  ############
         model = self.model
+        
         self.round_idx = args.round_idx
         args = self.args
         hyp = self.hyp if self.hyp else self.args.hyp
@@ -208,7 +212,30 @@ class YOLOv5Trainer(ClientTrainer):
 
             if (epoch + 1) % self.args.frequency_of_the_test == 0:
                 logging.info("Start val on Trainer {}".format(host_id))
-                self.val(test_data, device, args)
+                #self.val(test_data, device, args)
+                data_dict = None
+                save_dir = Path(args.opt["save_dir"])
+                weights = args.opt["weights"]
+                loggers = Loggers(save_dir, weights, args.opt, args.hyp, LOGGER)
+                #data_dict = loggers.remote_dataset
+                data_dict = data_dict or check_dataset(args.opt["data"])
+                logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
+                half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
+                self._val(data=data_dict,
+                          batch_size=args.batch_size,
+                          imgsz=args.img_size[0],
+                          half=half,
+                          model=model,
+                          single_cls=single_cls,
+                          dataloader=test_data,
+                          save_dir=save_dir,
+                          plots=plots,
+                          compute_loss=compute_loss, 
+                          args = args
+                          )
+                
+                
+                
 
         logging.info("End training on Trainer {}".format(host_id))
         torch.save(
@@ -241,6 +268,46 @@ class YOLOv5Trainer(ClientTrainer):
 
         return
 
+    def _val(self, 
+             data, 
+             batch_size, 
+             imgsz, 
+             half, 
+             model, 
+             single_cls, 
+             dataloader, 
+             save_dir, 
+             plots, 
+             compute_loss, 
+             args):
+        
+        host_id = int(list(args.client_id_list)[1])
+        results, maps, _ = validate.run(data = data,
+                                    batch_size = batch_size,
+                                    imgsz = imgsz,
+                                    half = half,
+                                    model = model,
+                                    single_cls = single_cls,
+                                    dataloader = dataloader,
+                                    save_dir = save_dir,
+                                    plots = plots,
+                                    compute_loss = compute_loss)
+        
+        MLOpsProfilerEvent.log_to_wandb(
+                {
+                    f"client_{host_id}_mean_precision": np.float(results[0]),
+                    f"client_{host_id}_mean_recall": np.float(results[1]),
+                    f"client_{host_id}_map@50": np.float(results[2]),
+                    f"client_{host_id}_map": np.float(results[3]),
+                    #f"client_{host_id}_test_box_loss": np.float(results[4]),
+                    #f"client_{host_id}_test_obj_loss": np.float(results[5]),
+                    #f"client_{host_id}_test_cls_loss": np.float(results[6]),
+                    
+                }
+            )
+        logging.info(f"mAPs of all class in a list {maps}")
+
+    
     def val(self, test_data, device, args):
         host_id = int(list(args.client_id_list)[1])
         logging.info(f"Trainer {host_id} val start")
