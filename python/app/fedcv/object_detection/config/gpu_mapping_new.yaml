@@ -2,3 +2,5 @@ mapping_config4_1:
   compute: [1,1,1,1,1,0,0,0]  
 mapping_config2_1:
   compute: [1,1,1,0,0,0,0,0]  
+mapping_config3_1:
+  compute: [0,0,0,0,0,1,1,1]  

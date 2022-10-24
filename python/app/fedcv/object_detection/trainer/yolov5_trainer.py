@@ -69,6 +69,7 @@ class YOLOv5Trainer(ClientTrainer):
         logging.info("set_model_params")
         self.model.load_state_dict(model_parameters)
 
+    # def train(self, train_data, device, args):
     def train(self, train_data, test_data, device, args):
         host_id = int(list(args.client_id_list)[1])
         logging.info("Start training on Trainer {}".format(host_id))
@@ -80,6 +81,9 @@ class YOLOv5Trainer(ClientTrainer):
         args = self.args
         hyp = self.hyp if self.hyp else self.args.hyp
         epochs = args.epochs  # number of epochs
+
+        # FIXME: Modify yolo here
+        # train data = train data + pseudo labels
 
         pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
         for k, v in model.named_modules():
@@ -138,7 +142,7 @@ class YOLOv5Trainer(ClientTrainer):
             t = time.time()
             batch_loss = []
             logging.info("Trainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
-
+            
             for (batch_idx, batch) in enumerate(train_data):
                 imgs, targets, paths, _ = batch
                 imgs = imgs.to(device, non_blocking=True).float() / 256.0 - 0.5

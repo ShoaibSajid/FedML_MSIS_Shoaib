@@ -1,0 +1,3 @@
+[submodule "python/app/fedcv/object_detection/Yolov5_DeepSORT_PseudoLabels"]
+	path = python/app/fedcv/object_detection/Yolov5_DeepSORT_PseudoLabels
+	url = https://github.com/ShoaibSajid/Yolov5_DeepSORT_PseudoLabels.git
