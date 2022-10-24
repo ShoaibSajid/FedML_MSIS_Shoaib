@@ -21,7 +21,7 @@ data_args:
 
 model_args:
   model: "yolov5" # "yolov5"
-  class_num: 80
+  class_num: 13
   yolo_cfg: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/runs/train/opt.yaml"
@@ -38,7 +38,7 @@ train_args:
   client_num_per_round: 2
   comm_round: 20
   epochs: 5
-  batch_size: 128
+  batch_size: 32
   client_optimizer: sgd
   lr: 0.01
   weight_decay: 0.0005

@@ -45,18 +45,15 @@ from utils.general import (LOGGER, check_dataset, check_img_size, check_requirem
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-import os
+
 
 def save_one_txt(predn, save_conf, shape, file):
-    
-    if not os.path.isdir(os.path.dirname(file)):
-        os.mkdir(os.path.dirname(file))
     # Save one txt result
     gn = torch.tensor(shape)[[1, 0, 1, 0]]  # normalization gain whwh
     for *xyxy, conf, cls in predn.tolist():
         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
-        with open(file, 'w') as f:
+        with open(file, 'a') as f:
             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
 
@@ -160,7 +157,7 @@ def run(
     # Configure
     model.eval()
     cuda = device.type != 'cpu'
-    is_coco = isinstance(data.get('val'), str) and data['val'].endswith(f'coco{os.sep}val2017.txt')  # COCO dataset
+    is_coco = isinstance(data.get('train'), str) and data['train'].endswith(f'coco{os.sep}val2017.txt')  # COCO dataset
     nc = 1 if single_cls else int(data['nc'])  # number of classes
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
@@ -175,7 +172,7 @@ def run(
         pad = 0.0 if task in ('speed', 'benchmark') else 0.5
         rect = False if task == 'benchmark' else pt  # square inference for benchmarks
         task = task if task in ('train', 'val', 'test') else 'val'  # path to train/val/test images
-        dataloader = create_dataloader(data[task],
+        dataloader = create_dataloader(data['train'],
                                        imgsz,
                                        batch_size,
                                        stride,

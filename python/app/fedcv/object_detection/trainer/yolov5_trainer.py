@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 import numpy as np
 import torch
+torch.cuda.empty_cache()
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -19,9 +20,30 @@ from model.yolov5.utils.general import Profile, non_max_suppression, xywh2xyxy, 
 from model.yolov5.utils.metrics import ConfusionMatrix, yolov5_ap_per_class, ap_per_class, box_iou
 from fedml.core.mlops.mlops_profiler_event import  MLOpsProfilerEvent
 from model.yolov5 import val as validate # imported to use original yolov5 validation function!!!
+from model.yolov5 import val_pseudos as pseudos # imported to use original yolov5 validation function!!!
 from model.yolov5.utils.loggers import Loggers
 from model.yolov5.utils.general import (LOGGER, check_amp, check_dataset, check_file, check_img_size, check_yaml, colorstr)
- 
+
+
+def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args):
+    """
+    makes pseudo labels
+    """
+    
+    results, maps, _ = validate.run(data            = data           ,
+                                    batch_size      = batch_size     ,
+                                    imgsz           = imgsz          ,
+                                    half            = half           ,
+                                    model           = model          ,
+                                    single_cls      = single_cls     ,
+                                    dataloader      = dataloader     ,
+                                    save_dir        = save_dir       ,
+                                    plots           = plots          ,
+                                    compute_loss    = compute_loss   ,
+                                    save_txt        = True
+                                    )
+    
+    return []
 
 def process_batch(detections, labels, iouv):
     """
@@ -82,8 +104,6 @@ class YOLOv5Trainer(ClientTrainer):
         hyp = self.hyp if self.hyp else self.args.hyp
         epochs = args.epochs  # number of epochs
 
-        # FIXME: Modify yolo here
-        # train data = train data + pseudo labels
 
         pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
         for k, v in model.named_modules():
@@ -134,6 +154,23 @@ class YOLOv5Trainer(ClientTrainer):
 
         compute_loss = ComputeLoss(model)
 
+
+        # FIXME: Modify yolo here
+        pseudo_labels(  data=check_dataset(args.opt["data"]),
+                        batch_size=args.batch_size,
+                        imgsz=args.img_size[0],
+                        half=False,
+                        model=model,
+                        single_cls=args.opt['single_cls'],
+                        dataloader=test_data,
+                        save_dir=self.args.save_dir,
+                        plots=False,
+                        compute_loss=compute_loss, 
+                        args = args
+                        )
+        # train data = train data + pseudo labels
+        
+        
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
