@@ -28,7 +28,6 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -36,16 +35,20 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 
+import os
+
 from models.common import DetectMultiBackend
 from utils.callbacks import Callbacks
 from utils.dataloaders import create_dataloader
-from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, check_yaml,
-                           coco80_to_coco91_class, colorstr, emojis, increment_path, non_max_suppression, print_args,
+from utils.general import (LOGGER, check_dataset, check_img_size,
+                           check_requirements, check_yaml,
+                           coco80_to_coco91_class, colorstr, emojis,
+                           increment_path, non_max_suppression, print_args,
                            scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-import os
+
 
 def save_one_txt(predn, save_conf, shape, file):
     
@@ -127,6 +130,8 @@ def run(
         plots=True,
         callbacks=Callbacks(),
         compute_loss=None,
+        epoch_no=None,
+        host_id=None
 ):
     # Initialize/load model and set device
     training = model is not None
@@ -253,7 +258,14 @@ def run(
 
             # Save/log
             if save_txt:
-                save_one_txt(predn, save_conf, shape, file=save_dir / 'labels' / (path.stem + '.txt'))
+                if not epoch_no==None:
+                    if epoch_no>0:
+                        if not host_id==None:
+                            save_one_txt(predn, save_conf, shape, file=save_dir / 'labels' / f'Trainer_{host_id}--epoch_{epoch_no}' / (path.stem + '.txt'))
+                        else:
+                            save_one_txt(predn, save_conf, shape, file=save_dir / 'labels' / f'epoch_{epoch_no}' / (path.stem + '.txt'))
+                else:
+                    save_one_txt(predn, save_conf, shape, file=save_dir / 'labels' / (path.stem + '.txt'))
             if save_json:
                 save_one_json(predn, jdict, path, class_map)  # append to COCO-JSON dictionary
             callbacks.run('on_val_image_end', pred, predn, path, names, im[si])

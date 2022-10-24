@@ -2,30 +2,38 @@ import copy
 import logging
 import math
 import time
-
 from pathlib import Path
+
 import numpy as np
 import torch
+
 torch.cuda.empty_cache()
+import fedml
 import torch.nn as nn
 import torch.optim as optim
+from fedml.core import ClientTrainer
+from fedml.core.mlops.mlops_profiler_event import MLOpsProfilerEvent
 from torch.optim import lr_scheduler
 from tqdm import tqdm
+
+from model.yolov5 import \
+    val as validate  # imported to use original yolov5 validation function!!!
+from model.yolov5 import \
+    val_pseudos as \
+    pseudos  # imported to use original yolov5 validation function!!!
 from model.yolov5.models.common import DetectMultiBackend
-
-import fedml
-from fedml.core import ClientTrainer
-from model.yolov5.utils.loss import ComputeLoss
-from model.yolov5.utils.general import Profile, non_max_suppression, xywh2xyxy, scale_coords
-from model.yolov5.utils.metrics import ConfusionMatrix, yolov5_ap_per_class, ap_per_class, box_iou
-from fedml.core.mlops.mlops_profiler_event import  MLOpsProfilerEvent
-from model.yolov5 import val as validate # imported to use original yolov5 validation function!!!
-from model.yolov5 import val_pseudos as pseudos # imported to use original yolov5 validation function!!!
+from model.yolov5.utils.general import (LOGGER, Profile, check_amp,
+                                        check_dataset, check_file,
+                                        check_img_size, check_yaml, colorstr,
+                                        non_max_suppression, scale_coords,
+                                        xywh2xyxy)
 from model.yolov5.utils.loggers import Loggers
-from model.yolov5.utils.general import (LOGGER, check_amp, check_dataset, check_file, check_img_size, check_yaml, colorstr)
+from model.yolov5.utils.loss import ComputeLoss
+from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
+                                        yolov5_ap_per_class)
 
 
-def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args):
+def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
     """
     makes pseudo labels
     """
@@ -40,7 +48,9 @@ def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_di
                                     save_dir        = save_dir       ,
                                     plots           = plots          ,
                                     compute_loss    = compute_loss   ,
-                                    save_txt        = True
+                                    save_txt        = True           ,
+                                    epoch_no        = epoch_no       ,
+                                    host_id         = host_id
                                     )
     
     return []
@@ -155,26 +165,32 @@ class YOLOv5Trainer(ClientTrainer):
         compute_loss = ComputeLoss(model)
 
 
-        # FIXME: Modify yolo here
-        pseudo_labels(  data=check_dataset(args.opt["data"]),
-                        batch_size=args.batch_size,
-                        imgsz=args.img_size[0],
-                        half=False,
-                        model=model,
-                        single_cls=args.opt['single_cls'],
-                        dataloader=test_data,
-                        save_dir=self.args.save_dir,
-                        plots=False,
-                        compute_loss=compute_loss, 
-                        args = args
-                        )
-        # train data = train data + pseudo labels
         
         
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
+                
+            if epoch>0:    
+                # FIXME: Modify yolo here
+                # train data = train data + pseudo labels
+                pseudo_labels(  data            =   check_dataset(args.opt["data"]),
+                                batch_size      =   args.batch_size,
+                                imgsz           =   args.img_size[0],
+                                half            =   False,
+                                model           =   model,
+                                single_cls      =   args.opt['single_cls'],
+                                dataloader      =   test_data,
+                                save_dir        =   self.args.save_dir,
+                                plots           =   False,
+                                compute_loss    =   compute_loss, 
+                                args            =   args,
+                                epoch_no        =   epoch,
+                                host_id         =   host_id
+                                )
+                
+            
             model.train()
             t = time.time()
             batch_loss = []
