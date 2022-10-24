@@ -189,8 +189,8 @@ class MqttS3MultiClientsCommManager(BaseCommunicationManager):
 
         if s3_key_str != "":
             logging.info(
-                "mqtt_s3.on_message: use s3 pack, s3 message key %s" % s3_key_str
-            )
+                f"\n ############# Sending model thru Sender ID {sender_id} and Receiver ID {receiver_id}" 
+                " mqtt_s3.on_message: use s3 pack, s3 message key %s\n" % s3_key_str)
 
             model_params = self.s3_storage.read_model(s3_key_str)
 
@@ -235,8 +235,8 @@ class MqttS3MultiClientsCommManager(BaseCommunicationManager):
             if model_params_obj != "":
                 # S3
                 logging.info(
-                    "mqtt_s3.send_message: S3+MQTT msg sent, s3 message key = %s"
-                    % message_key
+                    "\n mqtt_s3.send_message: (Server {}) S3+MQTT msg sent, (Client {}) s3 message key = {}".format(
+                        sender_id, receiver_id,  message_key)
                 )
                 logging.info("mqtt_s3.send_message: to python client.")
                 model_url = self.s3_storage.write_model(message_key, model_params_obj)
@@ -265,8 +265,8 @@ class MqttS3MultiClientsCommManager(BaseCommunicationManager):
             if model_params_obj != "":
                 # S3
                 logging.info(
-                    "mqtt_s3.send_message: S3+MQTT msg sent, message_key = %s"
-                    % message_key
+                    "\n mqtt_s3.send_message: (Client id {}) S3+MQTT msg sent, (Server {}) message_key = {}\n".format(
+                        sender_id,receiver_id,message_key)
                 )
                 model_url = self.s3_storage.write_model(message_key, model_params_obj)
                 model_params_key_url = {

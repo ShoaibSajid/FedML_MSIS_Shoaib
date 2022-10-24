@@ -283,7 +283,7 @@ class YOLOv5Trainer(ClientTrainer):
         
         host_id = int(list(args.client_id_list)[1])
         results, maps, _ = validate.run(data = data,
-                                    batch_size = batch_size,
+                                    batch_size = 128,
                                     imgsz = imgsz,
                                     half = half,
                                     model = model,

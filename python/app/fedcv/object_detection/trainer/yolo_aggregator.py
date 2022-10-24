@@ -39,6 +39,9 @@ class YOLOAggregator(ServerAggregator):
     def test(self, test_data, device, args):
         self._test(test_data=test_data, device=device)
         #pass
+    
+    def _val(self, test_data, device, args):
+        pass
 
     def _test(self, test_data, device):
         logging.info("Evaluating on Trainer ID: {}".format(self.id))

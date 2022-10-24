@@ -12,6 +12,7 @@ class FedMLTrainer(object):
         train_data_local_dict,
         train_data_local_num_dict,
         test_data_local_dict,
+        test_data_global,
         train_data_num,
         device,
         args,
@@ -27,6 +28,7 @@ class FedMLTrainer(object):
             self.train_data_local_dict = train_data_local_dict
 
         self.train_data_local_num_dict = train_data_local_num_dict
+        self.test_data_global = test_data_global
         self.test_data_local_dict = test_data_local_dict
         self.all_train_data_num = train_data_num
         self.train_local = None
@@ -53,7 +55,7 @@ class FedMLTrainer(object):
         tick = time.time()
 
         self.trainer.on_before_local_training(self.train_local, self.device, self.args)
-        self.trainer.train(self.train_local, self.device, self.args)
+        self.trainer.train(self.train_local, self.test_data_global, self.device, self.args)
         self.trainer.on_after_local_training(self.train_local, self.device, self.args)
 
         MLOpsProfilerEvent.log_to_wandb({"Train/Time": time.time() - tick, "round": round_idx})

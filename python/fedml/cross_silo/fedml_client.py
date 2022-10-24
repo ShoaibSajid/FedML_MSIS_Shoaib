@@ -26,6 +26,7 @@ class FedMLCrossSiloClient:
                 train_data_local_num_dict,
                 train_data_local_dict,
                 test_data_local_dict,
+                test_data_global,
                 model_trainer,
             )
 

@@ -13,6 +13,7 @@ def init_client(
     train_data_num,
     train_data_local_num_dict,
     train_data_local_dict,
+    test_data_global,
     test_data_local_dict,
     model_trainer=None,
 ):
@@ -27,6 +28,7 @@ def init_client(
         train_data_local_num_dict,
         train_data_local_dict,
         test_data_local_dict,
+        test_data_global,
         model_trainer,
     )
     if args.scenario == FEDML_CROSS_SILO_SCENARIO_HIERARCHICAL:
@@ -58,6 +60,7 @@ def get_trainer_dist_adapter(
     train_data_local_num_dict,
     train_data_local_dict,
     test_data_local_dict,
+    test_data_global,
     model_trainer,
 ):
     return TrainerDistAdapter(
@@ -68,6 +71,7 @@ def get_trainer_dist_adapter(
         train_data_num,
         train_data_local_num_dict,
         train_data_local_dict,
+        test_data_global,
         test_data_local_dict,
         model_trainer,
     )
