@@ -18,9 +18,6 @@ from tqdm import tqdm
 
 from model.yolov5 import \
     val as validate  # imported to use original yolov5 validation function!!!
-from model.yolov5 import \
-    val_pseudos as \
-    pseudos  # imported to use original yolov5 validation function!!!
 from model.yolov5.models.common import DetectMultiBackend
 from model.yolov5.utils.general import (LOGGER, Profile, check_amp,
                                         check_dataset, check_file,
@@ -31,27 +28,40 @@ from model.yolov5.utils.loggers import Loggers
 from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
-
+from model.yolov5 import \
+    val_pseudos as \
+    pseudos  # imported to use modified yolov5 validation function!!!
+from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file
 
 def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
     """
-    makes pseudo labels
+    Generate pseudo labels
+    Recover in forward and backward
     """
     
-    results, maps, _ = validate.run(data            = data           ,
-                                    batch_size      = batch_size     ,
-                                    imgsz           = imgsz          ,
-                                    half            = half           ,
-                                    model           = model          ,
-                                    single_cls      = single_cls     ,
-                                    dataloader      = dataloader     ,
-                                    save_dir        = save_dir       ,
-                                    plots           = plots          ,
-                                    compute_loss    = compute_loss   ,
-                                    save_txt        = True           ,
-                                    epoch_no        = epoch_no       ,
-                                    host_id         = host_id
-                                    )
+    HIGHCONF = 0.5
+    
+    for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
+        logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
+        results, maps, _ =  pseudos.run(data            = data          ,
+                                        batch_size      = batch_size    ,
+                                        imgsz           = imgsz         ,
+                                        half            = half          ,
+                                        model           = model         ,
+                                        single_cls      = single_cls    ,
+                                        dataloader      = dataloader    ,
+                                        save_dir        = save_dir      ,
+                                        plots           = plots         ,
+                                        compute_loss    = compute_loss  ,
+                                        
+                                        save_txt        = True          ,
+                                        epoch_no        = epoch_no      ,
+                                        host_id         = host_id       ,
+                                        conf_thres      = thresh        ,   
+                                        confidence      = conf                                     
+                                        )
+
+
     
     return []
 
@@ -172,7 +182,7 @@ class YOLOv5Trainer(ClientTrainer):
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
                 
-            if epoch>0:    
+            if epoch>0 or True:    
                 # FIXME: Modify yolo here
                 # train data = train data + pseudo labels
                 pseudo_labels(  data            =   check_dataset(args.opt["data"]),

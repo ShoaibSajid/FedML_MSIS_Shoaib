@@ -28,6 +28,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+import shutil
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -36,11 +37,15 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 
+import os
+
 from models.common import DetectMultiBackend
 from utils.callbacks import Callbacks
 from utils.dataloaders import create_dataloader
-from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, check_yaml,
-                           coco80_to_coco91_class, colorstr, emojis, increment_path, non_max_suppression, print_args,
+from utils.general import (LOGGER, check_dataset, check_img_size,
+                           check_requirements, check_yaml,
+                           coco80_to_coco91_class, colorstr, emojis,
+                           increment_path, non_max_suppression, print_args,
                            scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 from utils.plots import output_to_target, plot_images, plot_val_study
@@ -48,12 +53,13 @@ from utils.torch_utils import select_device, time_sync
 
 
 def save_one_txt(predn, save_conf, shape, file):
+    
     # Save one txt result
     gn = torch.tensor(shape)[[1, 0, 1, 0]]  # normalization gain whwh
     for *xyxy, conf, cls in predn.tolist():
         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
-        with open(file, 'a') as f:
+        with open(file, 'w') as f:
             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
 
@@ -124,6 +130,9 @@ def run(
         plots=True,
         callbacks=Callbacks(),
         compute_loss=None,
+        epoch_no=None,
+        host_id=None,
+        confidence=None
 ):
     # Initialize/load model and set device
     training = model is not None
@@ -157,7 +166,7 @@ def run(
     # Configure
     model.eval()
     cuda = device.type != 'cpu'
-    is_coco = isinstance(data.get('train'), str) and data['train'].endswith(f'coco{os.sep}val2017.txt')  # COCO dataset
+    is_coco = isinstance(data.get('val'), str) and data['val'].endswith(f'coco{os.sep}val2017.txt')  # COCO dataset
     nc = 1 if single_cls else int(data['nc'])  # number of classes
     iouv = torch.linspace(0.5, 0.95, 10, device=device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
@@ -172,7 +181,7 @@ def run(
         pad = 0.0 if task in ('speed', 'benchmark') else 0.5
         rect = False if task == 'benchmark' else pt  # square inference for benchmarks
         task = task if task in ('train', 'val', 'test') else 'val'  # path to train/val/test images
-        dataloader = create_dataloader(data['train'],
+        dataloader = create_dataloader(data[task],
                                        imgsz,
                                        batch_size,
                                        stride,
@@ -248,9 +257,18 @@ def run(
                     confusion_matrix.process_batch(predn, labelsn)
             stats.append((correct, pred[:, 4], pred[:, 5], labels[:, 0]))  # (correct, conf, pcls, tcls)
 
+# 
+
             # Save/log
             if save_txt:
-                save_one_txt(predn, save_conf, shape, file=save_dir / 'labels' / (path.stem + '.txt'))
+                file=save_dir / 'labels' 
+                if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--epoch_{epoch_no}'
+                if not confidence==None: file = file / f'{confidence}_{conf_thres}'
+                file.mkdir(parents=True, exist_ok=True)
+                if confidence=='low': shutil.copyfile(paths[si], file / (path.stem + '.jpg') )
+                file = file / (path.stem + '.txt')
+                save_one_txt(predn, save_conf, shape, file)
+                
             if save_json:
                 save_one_json(predn, jdict, path, class_map)  # append to COCO-JSON dictionary
             callbacks.run('on_val_image_end', pred, predn, path, names, im[si])
