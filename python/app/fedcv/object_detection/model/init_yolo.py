@@ -128,7 +128,7 @@ def init_yolo(args, device="cpu"):
     args.nc = nc  # change nc to actual number of classes
 
     # Model
-    # print("weights:", weights)
+    print("weights:", weights)
 
     if args.model.lower() == "yolov5":
         pretrained = weights.endswith(".pt")
@@ -145,9 +145,9 @@ def init_yolo(args, device="cpu"):
                 ["anchor"] if args.yolo_cfg or hyp.get("anchors") else []
             )  # exclude keys
             state_dict = ckpt["model"].float().state_dict()  # to FP32
-            state_dict = intersect_dicts(
-                state_dict, model.state_dict(), exclude=exclude
-            )  # intersect
+            # state_dict = intersect_dicts(
+            #     state_dict, model.state_dict(), exclude=exclude
+            # )  # intersect
             model.load_state_dict(state_dict, strict=False)  # load
             logging.info(
                 "Transferred %g/%g items from %s"

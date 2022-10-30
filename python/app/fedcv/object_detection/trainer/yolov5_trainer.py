@@ -3,6 +3,7 @@ import logging
 import math
 import time
 from pathlib import Path
+import argparse
 
 import numpy as np
 import torch
@@ -31,16 +32,15 @@ from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
 from model.yolov5 import \
     val_pseudos as \
     pseudos  # imported to use modified yolov5 validation function!!!
-from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file
+    
+from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
+from merge_forward_backward_v2 import merge 
+
 
 def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
     """
     Generate pseudo labels
-    Recover in forward and backward
     """
-    
-    HIGHCONF = 0.5
-    
     for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
         logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
         results, maps, _ =  pseudos.run(data            = data          ,
@@ -55,15 +55,75 @@ def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_di
                                         compute_loss    = compute_loss  ,
                                         
                                         save_txt        = True          ,
+                                        save_conf       = True          ,
                                         epoch_no        = epoch_no      ,
                                         host_id         = host_id       ,
                                         conf_thres      = thresh        ,   
                                         confidence      = conf                                     
                                         )
 
+def recover_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
+    from pathlib import Path            
+    class opt_recovery(object):
 
+        agnostic_nms        = False
+        augment             = False
+        classes             = None
+        config_deepsort     = 'Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml'
+        device              = ''
+        dnn                 = False
+        evaluate            = False
+        fourcc              = 'mp4v'
+        half                = False
+        imgsz               = [640, 640]
+        max_hc_boxes        = 1000
+        name                = 'Recover'
+        project             = Path('runs/track')
+        save_img            = False
+        save_vid            = False
+        show_vid            = False
+        visualize           = False
+        
+        deep_sort_model     = "resnet50_MSMT17"
+        yolo_model          = "best.pt"
+        conf_thres          = 0.5
+        iou_thres           = 0.6
+        save_txt            = True
+        exist_ok            = True
+        reverse             = False
+        
+        source=save_dir / 'labels' 
+        source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
+        source = source / f'low_0.001'
+        # source = source / f'high_0.5'
+        source.mkdir(parents=True, exist_ok=True)
+        source = str(source)
+        output = source
     
-    return []
+    # Recover in Forward
+    opt_recovery.output = opt_recovery.source+'-FW'
+    opt_recovery.reverse= False
+    with torch.no_grad():
+        recover.detect(opt_recovery)
+        print(f"\n\n\n")
+
+    # Recover in Backward
+    opt_recovery.output = opt_recovery.source+'-BW'
+    opt_recovery.reverse= True
+    with torch.no_grad():
+        recover.detect(opt_recovery)
+        print(f"\n\n\n")
+
+    # Merge
+    class opt_merge(object):
+        forward     = opt_recovery.source+'-FW'
+        backward    = opt_recovery.source+'-BW'
+        merged      = opt_recovery.source+'-Merged'
+    merge(opt_merge)
+
+    # python merge_forward_backward_v2.py
+    # --forward /data/pseudos/Algo_BDD_1Seq-0.5-FW --backward /data/pseudos/Algo_BDD_1Seq-0.5-BW --merged /data/pseudos/Algo_BDD_1Seq-0.5-Merged
+    return 0
 
 def process_batch(detections, labels, iouv):
     """
@@ -176,31 +236,46 @@ class YOLOv5Trainer(ClientTrainer):
 
 
         
+        # if epoch>0 or True:    
+        # FIXME: Modify yolo here
+        # train data = train data + pseudo labels
+        pseudo_labels(  data            =   check_dataset(args.opt["data"]),
+                        batch_size      =   args.batch_size,
+                        imgsz           =   args.img_size[0],
+                        half            =   False,
+                        model           =   model,
+                        single_cls      =   args.opt['single_cls'],
+                        dataloader      =   test_data,
+                        save_dir        =   self.args.save_dir,
+                        plots           =   False,
+                        compute_loss    =   compute_loss, 
+                        args            =   args,
+                        epoch_no        =   0,
+                        host_id         =   host_id
+                        )
+        
+        recover_labels( data            =   check_dataset(args.opt["data"]),
+                        batch_size      =   args.batch_size,
+                        imgsz           =   args.img_size[0],
+                        half            =   False,
+                        model           =   model,
+                        single_cls      =   args.opt['single_cls'],
+                        dataloader      =   test_data,
+                        save_dir        =   self.args.save_dir,
+                        plots           =   False,
+                        compute_loss    =   compute_loss, 
+                        args            =   args,
+                        epoch_no        =   0,
+                        host_id         =   host_id
+                        )
+        
+    
         
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
-                
-            if epoch>0 or True:    
-                # FIXME: Modify yolo here
-                # train data = train data + pseudo labels
-                pseudo_labels(  data            =   check_dataset(args.opt["data"]),
-                                batch_size      =   args.batch_size,
-                                imgsz           =   args.img_size[0],
-                                half            =   False,
-                                model           =   model,
-                                single_cls      =   args.opt['single_cls'],
-                                dataloader      =   test_data,
-                                save_dir        =   self.args.save_dir,
-                                plots           =   False,
-                                compute_loss    =   compute_loss, 
-                                args            =   args,
-                                epoch_no        =   epoch,
-                                host_id         =   host_id
-                                )
-                
-            
+               
             model.train()
             t = time.time()
             batch_loss = []
@@ -289,17 +364,17 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
                 half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
                 self._val(data=data_dict,
-                          batch_size=args.batch_size,
-                          imgsz=args.img_size[0],
-                          half=half,
-                          model=model,
-                          single_cls=single_cls,
-                          dataloader=test_data,
-                          save_dir=save_dir,
-                          plots=plots,
-                          compute_loss=compute_loss, 
-                          args = args
-                          )
+                        batch_size=args.batch_size,
+                        imgsz=args.img_size[0],
+                        half=half,
+                        model=model,
+                        single_cls=single_cls,
+                        dataloader=test_data,
+                        save_dir=save_dir,
+                        plots=plots,
+                        compute_loss=compute_loss, 
+                        args = args
+                        )
                 
                 
                 
@@ -336,17 +411,17 @@ class YOLOv5Trainer(ClientTrainer):
         return
 
     def _val(self, 
-             data, 
-             batch_size, 
-             imgsz, 
-             half, 
-             model, 
-             single_cls, 
-             dataloader, 
-             save_dir, 
-             plots, 
-             compute_loss, 
-             args):
+            data, 
+            batch_size, 
+            imgsz, 
+            half, 
+            model, 
+            single_cls, 
+            dataloader, 
+            save_dir, 
+            plots, 
+            compute_loss, 
+            args):
         
         host_id = int(list(args.client_id_list)[1])
         results, maps, _ = validate.run(data = data,

@@ -53,13 +53,14 @@ from utils.torch_utils import select_device, time_sync
 
 
 def save_one_txt(predn, save_conf, shape, file):
-    
+    # import os
+    # if os.path.isfile(file): os.rm(file)
     # Save one txt result
     gn = torch.tensor(shape)[[1, 0, 1, 0]]  # normalization gain whwh
     for *xyxy, conf, cls in predn.tolist():
         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
-        with open(file, 'w') as f:
+        with open(file, 'a') as f:
             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
 
@@ -163,6 +164,13 @@ def run(
         # Data
         data = check_dataset(data)  # check
 
+    load_weights=True
+    if load_weights:
+        load_weights=False
+        ckpt = torch.load("best.pt", map_location=device)
+        state_dict = ckpt["model"].float().state_dict()
+        model.load_state_dict(state_dict, strict=False)
+    
     # Configure
     model.eval()
     cuda = device.type != 'cpu'
