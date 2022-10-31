@@ -25,7 +25,7 @@ model_args:
   yolo_cfg: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/runs/train/opt.yaml"
-  weights: "/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
+  weights: 'none' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS

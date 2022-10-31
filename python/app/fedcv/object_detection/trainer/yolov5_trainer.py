@@ -4,9 +4,11 @@ import math
 import time
 from pathlib import Path
 import argparse
+import os
 
 import numpy as np
 import torch
+import shutil
 
 torch.cuda.empty_cache()
 import fedml
@@ -37,6 +39,32 @@ from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
 from merge_forward_backward_v2 import merge 
 
 
+def modify_dataset(dataloader,new_path):
+    
+    count_missing_file = 0
+    # Replace GT with Pseudos
+    for i, _label_file in enumerate(dataloader.dataset.label_files):
+        
+        # Path for new label file
+        new_label_file = os.path.join ( os.path.realpath(new_path), os.path.basename(_label_file) )
+        
+        # Make file if there are no pseudos for this file
+        if not os.path.isfile(new_label_file): 
+            open(new_label_file, 'w')
+            count_missing_file+=1
+            
+        # Read labels from pseudo file
+        _label_old    = dataloader.dataset.labels[i]
+        _label_pseudo = np.array([x.split() for x in open(new_label_file, 'r').readlines()],dtype='float32')
+        
+        # Replace labels in dataset
+        dataloader.dataset.labels[i] = _label_pseudo
+        
+        # Replace label file address in dataset
+        dataloader.dataset.label_files[i] = new_label_file
+        
+    return dataloader
+
 def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
     """
     Generate pseudo labels
@@ -62,7 +90,7 @@ def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_di
                                         confidence      = conf                                     
                                         )
 
-def recover_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
+def recover_labels(dataloader,save_dir,epoch_no,host_id):
     from pathlib import Path            
     class opt_recovery(object):
 
@@ -121,9 +149,10 @@ def recover_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_d
         merged      = opt_recovery.source+'-Merged'
     merge(opt_merge)
 
-    # python merge_forward_backward_v2.py
-    # --forward /data/pseudos/Algo_BDD_1Seq-0.5-FW --backward /data/pseudos/Algo_BDD_1Seq-0.5-BW --merged /data/pseudos/Algo_BDD_1Seq-0.5-Merged
-    return 0
+    # Replace pseudo labels in dataset
+    modify_dataset(dataloader,opt_merge.merged)
+        
+    return dataloader
 
 def process_batch(detections, labels, iouv):
     """
@@ -239,13 +268,18 @@ class YOLOv5Trainer(ClientTrainer):
         # if epoch>0 or True:    
         # FIXME: Modify yolo here
         # train data = train data + pseudo labels
+        
+        # Remove old labels
+        if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
+        
+        # Generate Pseudo Labels
         pseudo_labels(  data            =   check_dataset(args.opt["data"]),
                         batch_size      =   args.batch_size,
                         imgsz           =   args.img_size[0],
                         half            =   False,
                         model           =   model,
                         single_cls      =   args.opt['single_cls'],
-                        dataloader      =   test_data,
+                        dataloader      =   train_data,
                         save_dir        =   self.args.save_dir,
                         plots           =   False,
                         compute_loss    =   compute_loss, 
@@ -254,17 +288,10 @@ class YOLOv5Trainer(ClientTrainer):
                         host_id         =   host_id
                         )
         
-        recover_labels( data            =   check_dataset(args.opt["data"]),
-                        batch_size      =   args.batch_size,
-                        imgsz           =   args.img_size[0],
-                        half            =   False,
-                        model           =   model,
-                        single_cls      =   args.opt['single_cls'],
-                        dataloader      =   test_data,
+        # Run Forward and Backward Bounding Box Recovery
+        train_data = \
+        recover_labels( dataloader      =   train_data,
                         save_dir        =   self.args.save_dir,
-                        plots           =   False,
-                        compute_loss    =   compute_loss, 
-                        args            =   args,
                         epoch_no        =   0,
                         host_id         =   host_id
                         )
