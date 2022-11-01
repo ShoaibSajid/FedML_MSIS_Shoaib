@@ -13,7 +13,7 @@ environment_args:
 
 data_args:
   dataset: "coco"
-  data_cache_dir: ~/fedcv_data
+  data_cache_dir: ./fedcv_data
   partition_method: "homo"
   partition_alpha: 0.5
   data_conf: "./data/coco128.yaml" # yolo

@@ -130,6 +130,39 @@ class YOLOv5Trainer(ClientTrainer):
 
         compute_loss = ComputeLoss(model)
 
+        
+        # # if epoch>0 or True:    
+        # # FIXME: Modify yolo here
+        # # train data = train data + pseudo labels
+        
+        # # Remove old labels
+        # if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
+        
+        # # Generate Pseudo Labels
+        # pseudo_labels(  data            =   check_dataset(args.opt["data"]),
+        #                 batch_size      =   args.batch_size,
+        #                 imgsz           =   args.img_size[0],
+        #                 half            =   False,
+        #                 model           =   model,
+        #                 single_cls      =   args.opt['single_cls'],
+        #                 dataloader      =   train_data,
+        #                 save_dir        =   self.args.save_dir,
+        #                 plots           =   False,
+        #                 compute_loss    =   compute_loss, 
+        #                 args            =   args,
+        #                 epoch_no        =   0,
+        #                 host_id         =   host_id
+        #                 )
+        
+        # # Run Forward and Backward Bounding Box Recovery
+        # train_data = \
+        # recover_labels( dataloader      =   train_data,
+        #                 save_dir        =   self.args.save_dir,
+        #                 epoch_no        =   0,
+        #                 host_id         =   host_id
+        #                 )
+        
+    
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
@@ -214,13 +247,16 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info("Start val on Trainer {}".format(host_id))
                 #self.val(test_data, device, args)
                 data_dict = None
-                save_dir = Path(args.opt["save_dir"])
-                weights = args.opt["weights"]
-                loggers = Loggers(save_dir, weights, args.opt, args.hyp, LOGGER)
+                save_dir = self.args.save_dir
+                # save_dir = Path(args.opt["save_dir"])
+                # weights = args.opt["weights"]
+                # loggers = Loggers(save_dir, weights, args.opt, args.hyp, LOGGER)
                 #data_dict = loggers.remote_dataset
-                data_dict = data_dict or check_dataset(args.opt["data"])
-                logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
-                half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
+                data_dict = data_dict or check_dataset(args.data_conf)
+                # data_dict = data_dict or check_dataset(args.opt["data"])
+                # logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
+                # half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
+                half, single_cls, plots, callbacks = False, False, False, None
                 self._val(data=data_dict,
                           batch_size=args.batch_size,
                           imgsz=args.img_size[0],
