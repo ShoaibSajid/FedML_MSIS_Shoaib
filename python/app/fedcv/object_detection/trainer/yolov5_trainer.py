@@ -36,7 +36,7 @@ from model.yolov5 import \
     pseudos  # imported to use modified yolov5 validation function!!!
     
 from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
-from merge_forward_backward_v2 import merge 
+from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
 
 
 def modify_dataset(dataloader,new_path):
