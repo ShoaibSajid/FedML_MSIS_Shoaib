@@ -1,6 +1,8 @@
 path: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD
-train: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/train_5K.txt  #hackathon_train.txt   #train_5K.txt
-val: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/val_1K.txt
+train: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
+# train: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/train_5K.txt  #hackathon_train.txt   #train_5K.txt
+val: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/val_bdd.txt
+# val: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/val_1K.txt
 test: /home/gpuadmin/Project/FedML_MSIS_Shoaib/BDD/test_bdd.txt
 
 
