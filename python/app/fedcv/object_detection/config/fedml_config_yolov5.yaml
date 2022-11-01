@@ -21,10 +21,10 @@ data_args:
 
 model_args:
   model: "yolov5" # "yolov5"
-  class_num: 13
+  class_num: 80
   yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
-  weights: 'none' #"none" # "best.pt" # yolo
+  weights: "none" # "best.pt" # yolo
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS

@@ -128,7 +128,7 @@ def init_yolo(args, device="cpu"):
     args.nc = nc  # change nc to actual number of classes
 
     # Model
-    print("weights:", weights)
+    # print("weights:", weights)
 
     if args.model.lower() == "yolov5":
         pretrained = weights.endswith(".pt")
