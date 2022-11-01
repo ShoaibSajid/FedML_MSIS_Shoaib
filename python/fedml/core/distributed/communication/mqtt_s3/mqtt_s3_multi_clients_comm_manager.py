@@ -31,7 +31,7 @@ class MqttS3MultiClientsCommManager(BaseCommunicationManager):
         self.broker_host = None
         self.mqtt_user = None
         self.mqtt_pwd = None
-        self.keepalive_time = 180
+        self.keepalive_time = 120
         client_objects_str = str(args.client_id_list).replace('"', '"')
         client_objects_str = client_objects_str.replace("'", "")
         logging.info("origin client object " + str(args.client_id_list))
