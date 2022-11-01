@@ -6,6 +6,7 @@ from .communication.base_com_manager import BaseCommunicationManager
 from .communication.constants import CommunicationConstants
 from .communication.observer import Observer
 from ..mlops.mlops_configs import MLOpsConfigs
+from .communication.mqtt_s3.mqtt_s3_multi_clients_comm_manager import MqttS3MultiClientsCommManager
 
 
 class FedMLCommManager(Observer):
@@ -31,11 +32,12 @@ class FedMLCommManager(Observer):
     def get_sender_id(self):
         return self.rank
 
-    def receive_message(self, msg_type, msg_params) -> None:
+    def receive_message(self, msg_type, msg_params):
         logging.info(
             "receive_message. msg_type = %s, sender_id = %d, receiver_id = %d"
             % (str(msg_type), msg_params.get_sender_id(), msg_params.get_receiver_id())
         )
+        #send_message(msg_params)
         try:
             handler_callback_func = self.message_handler_dict[msg_type]
             handler_callback_func(msg_params)
