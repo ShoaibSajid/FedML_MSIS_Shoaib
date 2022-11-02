@@ -16,7 +16,7 @@ data_args:
   dataset: "bdd"
   data_cache_dir: ./fedcv_data
   partition_method: "homo"
-  partition_alpha: 0.5
+  partition_alpha: 1
   data_conf: "./data/bdd.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
@@ -38,7 +38,7 @@ train_args:
   client_num_in_total: 4
   client_num_per_round: 4
   comm_round: 300
-  epochs: 1
+  epochs: 5
   batch_size: 64
   client_optimizer: sgd
   lr: 0.01
