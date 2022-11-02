@@ -52,7 +52,7 @@ validation_args:
 device_args:
   worker_num: 4
   using_gpu: true
-  gpu_mapping_file: /home/gpuadmin/Project/FedML_MSIS/python/app/fedcv/object_detection/config/gpu_mapping_new.yaml
+  gpu_mapping_file: ./config/gpu_mapping_new.yaml
   gpu_mapping_key: mapping_config4_1
   gpu_ids: [0,1,2,3,4,5,6,7]
 
