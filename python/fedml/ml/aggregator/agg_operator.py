@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict
+import random
 
 from ...core.common.ml_engine_backend import MLEngineBackend
 
@@ -16,29 +17,38 @@ class FedMLAggOperator:
 
 
 def torch_aggregator(args, raw_grad_list, training_num):
-    (num0, avg_params) = raw_grad_list[0]
+    test = True
+    if test is not True:
+        (num0, avg_params) = raw_grad_list[0]
+        if args.federated_optimizer == "FedAvg":
+            for k in avg_params.keys():
+                for i in range(0, len(raw_grad_list)):
+                    local_sample_number, local_model_params = raw_grad_list[i]
+                    w = local_sample_number / training_num
+                    if i == 0:
+                        avg_params[k] = local_model_params[k] * w
+                    else:
+                        avg_params[k] += local_model_params[k] * w
+        elif args.federated_optimizer == "FedAvg_seq":
+            for k in avg_params.keys():
+                for i in range(0, len(raw_grad_list)):
+                    local_sample_number, local_model_params = raw_grad_list[i]
+                    if i == 0:
+                        avg_params[k] = local_model_params[k]
+                    else:
+                        avg_params[k] += local_model_params[k]
+        elif args.federated_optimizer == "FedOpt":
+            pass
+        return avg_params
+    else:
+        torch_single_client_weights(args, raw_grad_list, training_num)
 
-    if args.federated_optimizer == "FedAvg":
-        for k in avg_params.keys():
-            for i in range(0, len(raw_grad_list)):
-                local_sample_number, local_model_params = raw_grad_list[i]
-                w = local_sample_number / training_num
-                if i == 0:
-                    avg_params[k] = local_model_params[k] * w
-                else:
-                    avg_params[k] += local_model_params[k] * w
-    elif args.federated_optimizer == "FedAvg_seq":
-        for k in avg_params.keys():
-            for i in range(0, len(raw_grad_list)):
-                local_sample_number, local_model_params = raw_grad_list[i]
-                if i == 0:
-                    avg_params[k] = local_model_params[k]
-                else:
-                    avg_params[k] += local_model_params[k]
-    elif args.federated_optimizer == "FedOpt":
-        pass
-
-    return avg_params
+def torch_single_client_weights(args, raw_grad_list, training_num):
+    clients = int(args.client_number_in_total)
+    i = random.randint(0, clients)
+    (num, single_client_weight) = raw_grad_list[i]
+    return single_client_weight
+    
 
 
 def tf_aggregator(args, raw_grad_list, training_num):
