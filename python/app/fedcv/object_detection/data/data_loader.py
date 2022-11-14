@@ -846,8 +846,11 @@ def load_partition_data_coco(args, hyp, model):
         train_path, partition=partition, n_nets=client_number
     )
     net_dataidx_map_test = partition_data(
-        test_path, partition=partition, n_nets=client_number
+        test_path, partition=partition, n_nets=1
     )
+    # net_dataidx_map_test = partition_data(
+    #     test_path, partition=partition, n_nets=client_number
+    # )
     train_data_loader_dict = dict()
     test_data_loader_dict = dict()
     train_data_num_dict = dict()
@@ -926,7 +929,7 @@ def load_partition_data_coco(args, hyp, model):
             rect=True,
             rank=-1,
             pad=0.5,
-            net_dataidx_map=net_dataidx_map_test[client_idx],
+            net_dataidx_map=net_dataidx_map_test[0],
             workers=args.worker_num,
         )[0]
 
@@ -934,9 +937,9 @@ def load_partition_data_coco(args, hyp, model):
         train_data_num_dict[client_idx] = len(dataset)
         train_data_loader_dict[client_idx] = dataloader
         test_data_loader_dict[client_idx] = testloader
-            
-        # FIXME: 
-        test_data_loader_dict[client_idx] = test_dataloader_global
+        
+        # # FIXME: 
+        # test_data_loader_dict[client_idx] = test_dataloader_global
         
         # client_list.append(
         #     Client(i, train_data_loader_dict[i], len(dataset), opt, device, model, tb_writer=tb_writer,
@@ -944,6 +947,24 @@ def load_partition_data_coco(args, hyp, model):
         #
 
     
+
+    # FIXME: Testing
+    test_dataloader_global = create_dataloader(
+                                        test_path,
+                                        imgsz_test,
+                                        total_batch_size,
+                                        gs,
+                                        args,  # testloader
+                                        hyp=hyp,
+                                        rect=True,
+                                        rank=-1,
+                                        pad=0.5,
+                                        net_dataidx_map=net_dataidx_map_test[0],
+                                        workers=args.worker_num,
+                                  )[0]
+         
+    test_data_num = test_dataloader_global.dataset.data_size  
+        
     return (
         train_data_num,
         test_data_num,
