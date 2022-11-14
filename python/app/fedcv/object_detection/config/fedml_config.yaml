@@ -38,7 +38,7 @@ train_args:
   client_num_in_total: 2
   client_num_per_round: 2
   comm_round: 300
-  epochs: 5
+  epochs: 1
   batch_size: 64
   client_optimizer: sgd
   lr: 0.01
