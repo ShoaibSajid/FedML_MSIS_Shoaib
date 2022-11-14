@@ -13,20 +13,20 @@ environment_args:
 
 
 data_args:
-  dataset: "bdd"
+  dataset: "coco"
   data_cache_dir: ./fedcv_data
-  partition_method: "homo"
+  partition_method: "hetero"
   partition_alpha: 0.5
-  data_conf: "./data/bdd.yaml" # yolo
+  data_conf: "./data/coco.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
 model_args:
   model: "yolov5" # "yolov5"
-  class_num: 13
+  class_num: 80
   yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
-  weights: 'none' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
+  weights: 'yolov5s.pt' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS

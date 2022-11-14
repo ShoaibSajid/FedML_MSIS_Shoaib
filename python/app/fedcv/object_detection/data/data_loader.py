@@ -934,13 +934,15 @@ def load_partition_data_coco(args, hyp, model):
         train_data_num_dict[client_idx] = len(dataset)
         train_data_loader_dict[client_idx] = dataloader
         test_data_loader_dict[client_idx] = testloader
+            
+        # FIXME: 
+        test_data_loader_dict[client_idx] = test_dataloader_global
+        
         # client_list.append(
         #     Client(i, train_data_loader_dict[i], len(dataset), opt, device, model, tb_writer=tb_writer,
         #            hyp=hyp, wandb=wandb))
         #
 
-    # FIXME: 
-    test_data_loader_dict[client_idx] = test_dataloader_global
     
     return (
         train_data_num,
