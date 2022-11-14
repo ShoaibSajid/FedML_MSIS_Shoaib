@@ -845,13 +845,9 @@ def load_partition_data_coco(args, hyp, model):
     net_dataidx_map = partition_data(
         train_path, partition=partition, n_nets=client_number
     )
-    # FIXME: Change client number to 1
     net_dataidx_map_test = partition_data(
-        test_path, partition=partition, n_nets=1
+        test_path, partition=partition, n_nets=client_number
     )
-    # net_dataidx_map_test = partition_data(
-    #     test_path, partition=partition, n_nets=client_number
-    # )
     train_data_loader_dict = dict()
     test_data_loader_dict = dict()
     train_data_num_dict = dict()
@@ -943,6 +939,9 @@ def load_partition_data_coco(args, hyp, model):
         #            hyp=hyp, wandb=wandb))
         #
 
+    # FIXME: 
+    test_data_loader_dict[client_idx] = test_dataloader_global
+    
     return (
         train_data_num,
         test_data_num,
