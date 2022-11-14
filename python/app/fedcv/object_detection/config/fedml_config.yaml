@@ -4,7 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  name: "Exp1" # yolo
+  name: "Exp8" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
 
@@ -16,7 +16,7 @@ data_args:
   dataset: "bdd"
   data_cache_dir: ./fedcv_data
   partition_method: "homo"
-  partition_alpha: 1
+  partition_alpha: 0.5
   data_conf: "./data/bdd.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
