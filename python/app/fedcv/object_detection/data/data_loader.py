@@ -939,6 +939,9 @@ def load_partition_data_coco(args, hyp, model):
         #            hyp=hyp, wandb=wandb))
         #
 
+    # FIXME: 
+    test_data_loader_dict[client_idx] = test_dataloader_global
+    
     return (
         train_data_num,
         test_data_num,
