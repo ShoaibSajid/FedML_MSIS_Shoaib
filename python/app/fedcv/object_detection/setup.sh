@@ -7,3 +7,6 @@ git clone --recursive https://github.com/ShoaibSajid/yolov5.git
 sudo apt-get install libfreetype6-dev -y
 pip uninstall pillow
 pip install --no-cache-dir pillow
+
+pip install fedml --upgrade
+pip install -r requirements.txt
