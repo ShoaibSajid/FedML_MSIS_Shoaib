@@ -18,3 +18,8 @@ python/app/fedcv/object_detection/config/*
 ./config/*
 python/app/fedcv/object_detection/data/*
 ./data/*
+
+../../../../../3class_bdd/
+../../../../../3class_waymo/
+../../../../../BDD/
+../../coco128/
