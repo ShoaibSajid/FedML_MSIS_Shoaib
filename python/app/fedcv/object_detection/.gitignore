@@ -12,3 +12,5 @@ config/exp*
 ./BDD/images/*
 ./data/bdd.yaml
 data/bdd.yaml
+
+config/gpu_mapping_new.yaml
