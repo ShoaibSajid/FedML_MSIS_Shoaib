@@ -15,3 +15,6 @@ data/bdd.yaml
 
 config/gpu_mapping_new.yaml
 python/app/fedcv/object_detection/config/*
+./config/*
+python/app/fedcv/object_detection/data/*
+./data/*
