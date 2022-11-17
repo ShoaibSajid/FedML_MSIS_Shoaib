@@ -19,6 +19,6 @@ names: ['car', 'bus', 'truck', 'motorcycle', 'bicycle',
         'trailer', 'train', 'rider', 'pedestrian', 'traffic light',
         'traffic sign', 'other vehicle', 'other person']
 
-        0 vehicle
-        1 rider
-        2 pedestrian
+        #0 vehicle
+        #1 rider
+        #2 pedestrian
