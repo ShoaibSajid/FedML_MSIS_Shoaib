@@ -1,6 +1,6 @@
 mapping_config4_1:
-  compute: [2,1,1,1,0,0,0,0]  
+  compute: [0,0,0,1,1,1,1,1]  
 mapping_config2_1:
   compute: [0,0,0,0,0,1,1,1]  
 mapping_config2_1_shoaib:
-  compute: [1,1,1,0,0,0,0,0]  
+  compute: [0,0,0,0,0,1,1,1]  

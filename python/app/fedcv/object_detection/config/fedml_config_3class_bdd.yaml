@@ -4,7 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  name: "Exp10" # yolo
+  name: "Exp0" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
 
@@ -13,16 +13,16 @@ environment_args:
 
 
 data_args:
-  dataset: "coco"
+  dataset: "3class_bdd"
   data_cache_dir: ./fedcv_data
-  partition_method: "hetero"
+  partition_method: "homo"
   partition_alpha: 0.5
-  data_conf: "./data/coco.yaml" # yolo
+  data_conf: "./data/3class_bdd.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
 model_args:
   model: "yolov5" # "yolov5"
-  class_num: 80
+  class_num: 3
   yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
@@ -35,8 +35,8 @@ model_args:
 train_args:
   federated_optimizer: "FedAvg"
   client_id_list:
-  client_num_in_total: 4
-  client_num_per_round: 4
+  client_num_in_total: 2
+  client_num_per_round: 2
   comm_round: 300
   epochs: 1
   batch_size: 64
@@ -50,10 +50,10 @@ validation_args:
   frequency_of_the_test: 1
 
 device_args:
-  worker_num: 4
+  worker_num: 2
   using_gpu: true
   gpu_mapping_file: ./config/gpu_mapping_new.yaml
-  gpu_mapping_key: mapping_config4_1
+  gpu_mapping_key: mapping_config2_1_shoaib
   gpu_ids: [0,1,2,3,4,5,6,7]
 
 comm_args:

@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict
+import random
 
 from ...core.common.ml_engine_backend import MLEngineBackend
 
@@ -16,9 +17,8 @@ class FedMLAggOperator:
 
 
 def torch_aggregator(args, raw_grad_list, training_num):
-    (num0, avg_params) = raw_grad_list[0]
-
     if args.federated_optimizer == "FedAvg":
+        (num0, avg_params) = raw_grad_list[0]
         for k in avg_params.keys():
             for i in range(0, len(raw_grad_list)):
                 local_sample_number, local_model_params = raw_grad_list[i]
@@ -27,6 +27,16 @@ def torch_aggregator(args, raw_grad_list, training_num):
                     avg_params[k] = local_model_params[k] * w
                 else:
                     avg_params[k] += local_model_params[k] * w
+    elif args.federated_optimizer == "FedOpt":
+        (num0, avg_params) = raw_grad_list[0]
+        for k in avg_params.key():
+            for i in range(0, len(raw_grad_list)):
+                local_sample_number, local_model_params = raw_grad_list[i]
+                w = local_sample_number/training_num
+                if i == 0:
+                    avg_params[k] = local_model_params[k]*w
+                else:
+                    avg_params[k] += local_model_params[k]*w 
     elif args.federated_optimizer == "FedAvg_seq":
         for k in avg_params.keys():
             for i in range(0, len(raw_grad_list)):
@@ -37,9 +47,9 @@ def torch_aggregator(args, raw_grad_list, training_num):
                     avg_params[k] += local_model_params[k]
     elif args.federated_optimizer == "FedOpt":
         pass
-
     return avg_params
-
+    #else:
+    #    return avg_params
 
 def tf_aggregator(args, raw_grad_list, training_num):
     (num0, avg_params) = raw_grad_list[0]
