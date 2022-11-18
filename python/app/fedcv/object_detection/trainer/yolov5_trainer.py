@@ -36,10 +36,10 @@ from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
 
-from model.yolov5 import \
-    val_pseudos as \
-    pseudos  # imported to use modified yolov5 validation function!!!
 
+# Imports by Shoaib
+import shutil
+from model.yolov5 import val_pseudos as pseudos 
 from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
 from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
 
@@ -92,7 +92,7 @@ def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_di
                                         epoch_no        = epoch_no      ,
                                         host_id         = host_id       ,
                                         conf_thres      = thresh        ,   
-                                        confidence      = conf                                     
+                                        confidence      = conf          ,                                 
                                         )
 
 def recover_labels(dataloader,save_dir,epoch_no,host_id):
@@ -267,20 +267,20 @@ class YOLOv5Trainer(ClientTrainer):
         compute_loss = ComputeLoss(model)
 
         
-        # # if epoch>0 or True:    
-        # # FIXME: Modify yolo here
-        # # train data = train data + pseudo labels
+        # if epoch>0 or True:    
+        # FIXME: Modify yolo here
+        # train data = train data + pseudo labels
         
         # # Remove old labels
         # if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
         
         # # Generate Pseudo Labels
-        # pseudo_labels(  data            =   check_dataset(args.opt["data"]),
+        # pseudo_labels(  data            =   check_dataset(args.data_conf),
         #                 batch_size      =   args.batch_size,
         #                 imgsz           =   args.img_size[0],
         #                 half            =   False,
         #                 model           =   model,
-        #                 single_cls      =   args.opt['single_cls'],
+        #                 single_cls      =   False,
         #                 dataloader      =   train_data,
         #                 save_dir        =   self.args.save_dir,
         #                 plots           =   False,
