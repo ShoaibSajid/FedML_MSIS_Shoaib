@@ -164,7 +164,7 @@ def run(
         # Data
         data = check_dataset(data)  # check
 
-    load_weights=True
+    load_weights=False
     if load_weights:
         load_weights=False
         ckpt = torch.load("best.pt", map_location=device)

@@ -36,128 +36,169 @@ from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
 
-from model.yolov5 import \
-    val_pseudos as \
-    pseudos  # imported to use modified yolov5 validation function!!!
 
-from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
-from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
+use_shoaib_code=False
+if use_shoaib_code:
+    import shutil
+    from model.yolov5 import \
+        val_pseudos as \
+        pseudos  # imported to use modified yolov5 validation function!!!
+    from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
+    from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
+
+    from data.data_loader import create_dataloader
+
+    def partition_data(data_path):
+        if os.path.isfile(data_path):
+            with open(data_path) as f:
+                data = f.readlines()
+            n_data = len(data)
+        else:
+            n_data = len(os.listdir(data_path))
+        total_num = n_data
+        idxs = np.random.permutation(total_num)
+        batch_idxs = np.array_split(idxs, 1)
+        net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
+        return net_dataidx_map
 
 
-def modify_dataset(dataloader,new_path):
-       
-    count_missing_file = 0
-    # Replace GT with Pseudos
-    for i, _label_file in enumerate(dataloader.dataset.label_files):
+    def get_new_data(data_path,args,hyp):
+        net_dataidx_map_test = partition_data(data_path)
         
-        # Path for new label file
-        new_label_file = os.path.join ( os.path.realpath(new_path), os.path.basename(_label_file) )
+        imgsz_test=640
+        total_batch_size=64
+        gs=32
         
-        # Make file if there are no pseudos for this file
-        if not os.path.isfile(new_label_file): 
-            open(new_label_file, 'w')
-            count_missing_file+=1
+        testloader = create_dataloader(
+            data_path,
+            imgsz_test,
+            total_batch_size,
+            gs,
+            args,  # testloader
+            hyp=hyp,
+            rect=True,
+            rank=-1,
+            pad=0.5,
+            net_dataidx_map=net_dataidx_map_test[0],
+            workers=args.worker_num,
+            )[0]
+
+
+    def modify_dataset(dataloader,new_path):
+        
+        count_missing_file = 0
+        # Replace GT with Pseudos
+        for i, _label_file in enumerate(dataloader.dataset.label_files):
             
-        # Read labels from pseudo file
-        _label_old    = dataloader.dataset.labels[i]
-        _label_pseudo = np.array([x.split() for x in open(new_label_file, 'r').readlines()],dtype='float32')
-        
-        # Replace labels in dataset
-        dataloader.dataset.labels[i] = _label_pseudo
-        
-        # Replace label file address in dataset
-        dataloader.dataset.label_files[i] = new_label_file
-        
-    return dataloader
+            # Path for new label file
+            new_label_file = os.path.join ( os.path.realpath(new_path), os.path.basename(_label_file) )
+            
+            # Make file if there are no pseudos for this file
+            if not os.path.isfile(new_label_file): 
+                open(new_label_file, 'w')
+                count_missing_file+=1
+                
+            # Read labels from pseudo file
+            _label_old    = dataloader.dataset.labels[i]
+            _label_pseudo = np.array([x.split() for x in open(new_label_file, 'r').readlines()],dtype='float32')
+            
+            # Replace labels in dataset
+            dataloader.dataset.labels[i] = _label_pseudo
+            
+            # Replace label file address in dataset
+            dataloader.dataset.label_files[i] = new_label_file
+            
+        return dataloader
 
-def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
-    """
-    Generate pseudo labels
-    """
-    for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
-        logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
-        results, maps, _ =  pseudos.run(data            = data          ,
-                                        batch_size      = batch_size    ,
-                                        imgsz           = imgsz         ,
-                                        half            = half          ,
-                                        model           = model         ,
-                                        single_cls      = single_cls    ,
-                                        dataloader      = dataloader    ,
-                                        save_dir        = save_dir      ,
-                                        plots           = plots         ,
-                                        compute_loss    = compute_loss  ,
-                                        
-                                        save_txt        = True          ,
-                                        save_conf       = True          ,
-                                        epoch_no        = epoch_no      ,
-                                        host_id         = host_id       ,
-                                        conf_thres      = thresh        ,   
-                                        confidence      = conf                                     
-                                        )
+    def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
+        """
+        Generate pseudo labels
+        """
+        for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
+            logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
+            results, maps, _ =  pseudos.run(data            = data          ,
+                                            batch_size      = batch_size    ,
+                                            imgsz           = imgsz         ,
+                                            half            = half          ,
+                                            model           = model         ,
+                                            single_cls      = single_cls    ,
+                                            dataloader      = dataloader    ,
+                                            save_dir        = save_dir      ,
+                                            plots           = plots         ,
+                                            compute_loss    = compute_loss  ,
+                                            
+                                            save_txt        = True          ,
+                                            save_conf       = True          ,
+                                            epoch_no        = epoch_no      ,
+                                            host_id         = host_id       ,
+                                            conf_thres      = thresh        ,   
+                                            confidence      = conf                                     
+                                            )
 
-def recover_labels(dataloader,save_dir,epoch_no,host_id):
-    from pathlib import Path            
-    class opt_recovery(object):
+    def recover_labels(dataloader,save_dir,epoch_no,host_id):
+        from pathlib import Path            
+        class opt_recovery(object):
 
-        agnostic_nms        = False
-        augment             = False
-        classes             = None
-        config_deepsort     = 'Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml'
-        device              = ''
-        dnn                 = False
-        evaluate            = False
-        fourcc              = 'mp4v'
-        half                = False
-        imgsz               = [640, 640]
-        max_hc_boxes        = 1000
-        name                = 'Recover'
-        project             = Path('runs/track')
-        save_img            = False
-        save_vid            = False
-        show_vid            = False
-        visualize           = False
+            agnostic_nms        = False
+            augment             = False
+            classes             = None
+            config_deepsort     = 'Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml'
+            device              = ''
+            dnn                 = False
+            evaluate            = False
+            fourcc              = 'mp4v'
+            half                = False
+            imgsz               = [640, 640]
+            max_hc_boxes        = 1000
+            name                = 'Recover'
+            project             = Path('runs/track')
+            save_img            = False
+            save_vid            = False
+            show_vid            = False
+            visualize           = False
+            
+            deep_sort_model     = "resnet50_MSMT17"
+            yolo_model          = "best.pt"
+            conf_thres          = 0.5
+            iou_thres           = 0.6
+            save_txt            = True
+            exist_ok            = True
+            reverse             = False
+            
+            source=save_dir / 'labels' 
+            source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
+            source = source / f'low_0.001'
+            # source = source / f'high_0.5'
+            source.mkdir(parents=True, exist_ok=True)
+            source = str(source)
+            output = source
         
-        deep_sort_model     = "resnet50_MSMT17"
-        yolo_model          = "best.pt"
-        conf_thres          = 0.5
-        iou_thres           = 0.6
-        save_txt            = True
-        exist_ok            = True
-        reverse             = False
-        
-        source=save_dir / 'labels' 
-        source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
-        source = source / f'low_0.001'
-        # source = source / f'high_0.5'
-        source.mkdir(parents=True, exist_ok=True)
-        source = str(source)
-        output = source
+        # Recover in Forward
+        opt_recovery.output = opt_recovery.source+'-FW'
+        opt_recovery.reverse= False
+        with torch.no_grad():
+            recover.detect(opt_recovery)
+            print(f"\n\n\n")
+
+        # Recover in Backward
+        opt_recovery.output = opt_recovery.source+'-BW'
+        opt_recovery.reverse= True
+        with torch.no_grad():
+            recover.detect(opt_recovery)
+            print(f"\n\n\n")
+
+        # Merge
+        class opt_merge(object):
+            forward     = opt_recovery.source+'-FW'
+            backward    = opt_recovery.source+'-BW'
+            merged      = opt_recovery.source+'-Merged'
+        merge(opt_merge)
+
+        # Replace pseudo labels in dataset
+        modify_dataset(dataloader,opt_merge.merged)
+            
+        return dataloader
     
-    # Recover in Forward
-    opt_recovery.output = opt_recovery.source+'-FW'
-    opt_recovery.reverse= False
-    with torch.no_grad():
-        recover.detect(opt_recovery)
-        print(f"\n\n\n")
-
-    # Recover in Backward
-    opt_recovery.output = opt_recovery.source+'-BW'
-    opt_recovery.reverse= True
-    with torch.no_grad():
-        recover.detect(opt_recovery)
-        print(f"\n\n\n")
-
-    # Merge
-    class opt_merge(object):
-        forward     = opt_recovery.source+'-FW'
-        backward    = opt_recovery.source+'-BW'
-        merged      = opt_recovery.source+'-Merged'
-    merge(opt_merge)
-
-    # Replace pseudo labels in dataset
-    modify_dataset(dataloader,opt_merge.merged)
-        
-    return dataloader
 
 def process_batch(detections, labels, iouv):
     """
@@ -267,37 +308,40 @@ class YOLOv5Trainer(ClientTrainer):
         compute_loss = ComputeLoss(model)
 
         
-        # # if epoch>0 or True:    
-        # # FIXME: Modify yolo here
-        # # train data = train data + pseudo labels
-        
-        # # Remove old labels
-        # if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
-        
-        # # Generate Pseudo Labels
-        # pseudo_labels(  data            =   check_dataset(args.opt["data"]),
-        #                 batch_size      =   args.batch_size,
-        #                 imgsz           =   args.img_size[0],
-        #                 half            =   False,
-        #                 model           =   model,
-        #                 single_cls      =   args.opt['single_cls'],
-        #                 dataloader      =   train_data,
-        #                 save_dir        =   self.args.save_dir,
-        #                 plots           =   False,
-        #                 compute_loss    =   compute_loss, 
-        #                 args            =   args,
-        #                 epoch_no        =   0,
-        #                 host_id         =   host_id
-        #                 )
-        
-        # # Run Forward and Backward Bounding Box Recovery
-        # train_data = \
-        # recover_labels( dataloader      =   train_data,
-        #                 save_dir        =   self.args.save_dir,
-        #                 epoch_no        =   0,
-        #                 host_id         =   host_id
-        #                 )
-        
+        if use_shoaib_code:
+            get_new_data("../../../../3class_waymo/waymo_val",args,hyp)
+            
+            # if epoch>0 or True:    
+            # FIXME: Modify yolo here
+            # train data = train data + pseudo labels
+            
+            # Remove old labels
+            if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
+            
+            # Generate Pseudo Labels
+            pseudo_labels(  data            =   check_dataset(args.data_conf),
+                            batch_size      =   args.batch_size,
+                            imgsz           =   args.img_size[0],
+                            half            =   False,
+                            model           =   model,
+                            single_cls      =   False,
+                            dataloader      =   train_data,
+                            save_dir        =   self.args.save_dir,
+                            plots           =   False,
+                            compute_loss    =   compute_loss, 
+                            args            =   args,
+                            epoch_no        =   0,
+                            host_id         =   host_id
+                            )
+            
+            # Run Forward and Backward Bounding Box Recovery
+            train_data = \
+            recover_labels( dataloader      =   train_data,
+                            save_dir        =   self.args.save_dir,
+                            epoch_no        =   0,
+                            host_id         =   host_id
+                            )
+            
     
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
