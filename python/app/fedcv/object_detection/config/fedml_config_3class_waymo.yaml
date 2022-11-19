@@ -71,3 +71,14 @@ tracking_args:
   wandb_key: ee0b5f53d949c84cee7decbe7a629e63fb2f8408
   wandb_project: fedml
   wandb_name: fedml_torch_object_detection
+
+new_data_args:
+  new_data: "waymo"
+  new_data_conf: "./data/3class_waymo.yaml" # yolo
+  new_data_num_images: 500
+  tmp_merge_file: "../../../../merged_list.txt"
+  new_deepsort_config: "Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml"
+  conf_thres: 0.5
+  iou_thres: 0.6
+  psuedo_gen_on_clients: [2]
+  color_str: "bright_yellow" #bright_red, bright_green, bright_blue

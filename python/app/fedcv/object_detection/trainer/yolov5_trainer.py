@@ -36,52 +36,79 @@ from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
 
-
-use_shoaib_code=False
+use_shoaib_code=True
 if use_shoaib_code:
+    import sys
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/')
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/yolov5')
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/deep_sort')
+    
     import shutil
-    from model.yolov5 import \
-        val_pseudos as \
-        pseudos  # imported to use modified yolov5 validation function!!!
+    
+    from model.yolov5 import val_pseudos as pseudos  # imported to use modified yolov5 validation function!!!
     from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
     from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
 
     from data.data_loader import create_dataloader
-
-    def partition_data(data_path):
+    import yaml
+    
+    def partition_data(data_path,total_num=[]):
         if os.path.isfile(data_path):
             with open(data_path) as f:
                 data = f.readlines()
             n_data = len(data)
         else:
             n_data = len(os.listdir(data_path))
-        total_num = n_data
+        if total_num==[]:
+            total_num = n_data
         idxs = np.random.permutation(total_num)
         batch_idxs = np.array_split(idxs, 1)
         net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
         return net_dataidx_map
 
+    def merge_training_lists(args):
+        
+        org_files = args.org_data
+        new_train_path = args.new_pseudos_recovered
+        new_files = os.listdir(new_train_path)
+        
+        LOGGER.info(colorstr(args.color_str,"bold", \
+            f"\n\tRound {args.round_idx}: Client {args.client_id}: Merging {len(org_files)} original training data {args.data_conf} with {len(new_files)} recovered pseudo labels of new data {new_train_path}.\n"))
+        
+        with open(args.tmp_merge_file , 'w') as outfile:
+            for line in org_files:
+                outfile.write(line+'\n')
+            for line in new_files:
+                outfile.write(os.path.join(new_train_path,line))
+                
+        return args.tmp_merge_file
 
-    def get_new_data(data_path,args,hyp):
-        net_dataidx_map_test = partition_data(data_path)
-        
-        imgsz_test=640
-        total_batch_size=64
-        gs=32
-        
-        testloader = create_dataloader(
-            data_path,
-            imgsz_test,
-            total_batch_size,
-            gs,
-            args,  # testloader
-            hyp=hyp,
-            rect=True,
-            rank=-1,
-            pad=0.5,
-            net_dataidx_map=net_dataidx_map_test[0],
-            workers=args.worker_num,
-            )[0]
+    def get_new_data(data_path,args):
+        # data_path            = args.new_data
+        imgsz_test           = args.new_dataloader_args[0]
+        total_batch_size     = args.new_dataloader_args[1]
+        gs                   = args.new_dataloader_args[2]
+        args                 = args.new_dataloader_args[3]
+        hyp                  = args.new_dataloader_args[4]
+        rect                 = args.new_dataloader_args[5]
+        rank                 = -1
+        pad                  = args.new_dataloader_args[7]
+        workers              = args.new_dataloader_args[8]
+        net_dataidx_map_test = partition_data(data_path,total_num=args.new_data_num_images)
+        testloader           = create_dataloader(
+                                                data_path,
+                                                imgsz_test,
+                                                total_batch_size,
+                                                gs,
+                                                args,  # testloader
+                                                hyp=hyp,
+                                                rect=rect,
+                                                rank=rank,
+                                                pad=pad,
+                                                net_dataidx_map=net_dataidx_map_test[0],
+                                                workers=workers,
+                                                )[0]
+        return testloader
 
 
     def modify_dataset(dataloader,new_path):
@@ -115,7 +142,8 @@ if use_shoaib_code:
         Generate pseudo labels
         """
         for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
-            logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
+            LOGGER.info(colorstr(args.color_str,"bold", \
+                        f"\n\tRound {args.round_idx}: Client {args.client_id}: Generating {conf} confidence labels at {thresh} threshold.\n"))
             results, maps, _ =  pseudos.run(data            = data          ,
                                             batch_size      = batch_size    ,
                                             imgsz           = imgsz         ,
@@ -135,20 +163,20 @@ if use_shoaib_code:
                                             confidence      = conf                                     
                                             )
 
-    def recover_labels(dataloader,save_dir,epoch_no,host_id):
+    def recover_labels(dataloader, save_dir, epoch_no, host_id, args):
         from pathlib import Path            
         class opt_recovery(object):
 
             agnostic_nms        = False
             augment             = False
             classes             = None
-            config_deepsort     = 'Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml'
+            config_deepsort     = args.new_deepsort_config
             device              = ''
             dnn                 = False
             evaluate            = False
             fourcc              = 'mp4v'
             half                = False
-            imgsz               = [640, 640]
+            imgsz               = args.new_dataloader_args[0]
             max_hc_boxes        = 1000
             name                = 'Recover'
             project             = Path('runs/track')
@@ -158,14 +186,14 @@ if use_shoaib_code:
             visualize           = False
             
             deep_sort_model     = "resnet50_MSMT17"
-            yolo_model          = "best.pt"
-            conf_thres          = 0.5
-            iou_thres           = 0.6
+            yolo_model          = []
+            conf_thres          = args.conf_thres
+            iou_thres           = args.iou_thres
             save_txt            = True
             exist_ok            = True
             reverse             = False
             
-            source=save_dir / 'labels' 
+            source = save_dir / 'labels' 
             source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
             source = source / f'low_0.001'
             # source = source / f'high_0.5'
@@ -177,13 +205,17 @@ if use_shoaib_code:
         opt_recovery.output = opt_recovery.source+'-FW'
         opt_recovery.reverse= False
         with torch.no_grad():
-            recover.detect(opt_recovery)
+            LOGGER.info(colorstr(args.color_str,"bold", \
+                f"\n\tRound {args.round_idx}: Client {args.client_id}: Performing pseudo label recovery in Forward direction.\n"))
+            recover.detect(opt_recovery)         
             print(f"\n\n\n")
 
         # Recover in Backward
         opt_recovery.output = opt_recovery.source+'-BW'
         opt_recovery.reverse= True
         with torch.no_grad():
+            LOGGER.info(colorstr(args.color_str,"bold", \
+                f"\n\tRound {args.round_idx}: Client {args.client_id}: Performing pseudo label recovery in Backward direction.\n"))
             recover.detect(opt_recovery)
             print(f"\n\n\n")
 
@@ -192,12 +224,11 @@ if use_shoaib_code:
             forward     = opt_recovery.source+'-FW'
             backward    = opt_recovery.source+'-BW'
             merged      = opt_recovery.source+'-Merged'
+        LOGGER.info(colorstr(args.color_str,"bold", \
+            f"\n\tRound {args.round_idx}: Client {args.client_id}: Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.\n"))
         merge(opt_merge)
-
-        # Replace pseudo labels in dataset
-        modify_dataset(dataloader,opt_merge.merged)
             
-        return dataloader
+        return opt_merge.merged
     
 
 def process_batch(detections, labels, iouv):
@@ -248,6 +279,7 @@ class YOLOv5Trainer(ClientTrainer):
 
     def train(self, train_data, test_data, device, args):
         host_id = int(list(args.client_id_list)[1])
+        args.client_id = host_id
         logging.info("Start training on Trainer {}".format(host_id))
         logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
         LOGGER.info(colorstr('hyperparameters: ')+ ', '.join(f'{k}={v}' for k, v in self.hyp.items()))  ############
@@ -307,25 +339,31 @@ class YOLOv5Trainer(ClientTrainer):
 
         compute_loss = ComputeLoss(model)
 
+        # -------------------------------- Shoaib Code --------------------------------------- #
         
-        if use_shoaib_code:
-            get_new_data("../../../../3class_waymo/waymo_val",args,hyp)
-            
-            # if epoch>0 or True:    
-            # FIXME: Modify yolo here
-            # train data = train data + pseudo labels
+        if (use_shoaib_code) and (args.round_idx > 50)  and (args.rank in args.psuedo_gen_on_clients): # if epoch>0 or True: 
             
             # Remove old labels
-            if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
+            if os.path.isdir(self.args.save_dir/'labels'):     
+                LOGGER.info(colorstr(args.color_str,"bold", \
+                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Removing old label files if present at {self.args.save_dir/'labels'}\n"))
+                shutil.rmtree(self.args.save_dir/'labels')
             
-            # Generate Pseudo Labels
-            pseudo_labels(  data            =   check_dataset(args.data_conf),
+            # Load new dataset equal to args.new_data_num_images from args.new_data
+            args.org_data = train_data.dataset.img_files
+            args.new_data = check_dataset(args.new_data_conf)['train']
+            LOGGER.info(colorstr(args.color_str,"bold", \
+                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]\n"))
+            new_dataloader = get_new_data(args.new_data,args)
+            
+            # Generate Pseudo Labels for new dataset
+            pseudo_labels(  data            =   check_dataset(args.new_data_conf),
                             batch_size      =   args.batch_size,
                             imgsz           =   args.img_size[0],
                             half            =   False,
                             model           =   model,
                             single_cls      =   False,
-                            dataloader      =   train_data,
+                            dataloader      =   new_dataloader,
                             save_dir        =   self.args.save_dir,
                             plots           =   False,
                             compute_loss    =   compute_loss, 
@@ -335,13 +373,19 @@ class YOLOv5Trainer(ClientTrainer):
                             )
             
             # Run Forward and Backward Bounding Box Recovery
-            train_data = \
-            recover_labels( dataloader      =   train_data,
-                            save_dir        =   self.args.save_dir,
-                            epoch_no        =   0,
-                            host_id         =   host_id
-                            )
-            
+            args.new_pseudos_recovered = recover_labels( dataloader      =   new_dataloader,
+                                                    save_dir        =   self.args.save_dir,
+                                                    epoch_no        =   0,
+                                                    host_id         =   host_id,
+                                                    args            =   args,
+                                                    )
+        
+            # train data = train data + pseudo labels    
+            args.mixed_train_data_path = merge_training_lists(args)
+            LOGGER.info(colorstr(args.color_str,"bold", \
+                f"\n\tRound {args.round_idx}: Client {args.client_id}: Creating the dataloader using original and pseudo label training data.\n"))
+            mixed_data = get_new_data(args.mixed_train_data_path,args)
+            train_data = mixed_data
     
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses

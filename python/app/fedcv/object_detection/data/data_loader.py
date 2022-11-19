@@ -848,6 +848,7 @@ def load_partition_data_coco(args, hyp, model):
     net_dataidx_map_test = partition_data(
         test_path, partition=partition, n_nets=1
     )
+
     # net_dataidx_map_test = partition_data(
     #     test_path, partition=partition, n_nets=client_number
     # )
@@ -937,7 +938,8 @@ def load_partition_data_coco(args, hyp, model):
         train_data_num_dict[client_idx] = len(dataset)
         train_data_loader_dict[client_idx] = dataloader
         test_data_loader_dict[client_idx] = testloader
-        
+    
+    
         # # FIXME: 
         # test_data_loader_dict[client_idx] = test_dataloader_global
         
@@ -945,9 +947,25 @@ def load_partition_data_coco(args, hyp, model):
         #     Client(i, train_data_loader_dict[i], len(dataset), opt, device, model, tb_writer=tb_writer,
         #            hyp=hyp, wandb=wandb))
         #
-
+    args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
     
-
+    # new_path                    = args.new_train_dir
+    # net_dataidx_map_new_data    = partition_data(new_path, partition=partition, n_nets=1)
+    # new_dataloader_global       = create_dataloader(
+    #                                     new_path,
+    #                                     imgsz_test,
+    #                                     total_batch_size,
+    #                                     gs,
+    #                                     args,  # testloader
+    #                                     hyp=hyp,
+    #                                     rect=True,
+    #                                     rank=-1,
+    #                                     pad=0.5,
+    #                                     net_dataidx_map=net_dataidx_map_new_data[0],
+    #                                     workers=args.worker_num,
+    #                               )[0]
+    
+    
     # FIXME: Testing
     test_dataloader_global = create_dataloader(
                                         test_path,
