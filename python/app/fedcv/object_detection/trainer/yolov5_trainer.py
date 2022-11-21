@@ -456,7 +456,7 @@ class YOLOv5Trainer(ClientTrainer):
 
         compute_loss = ComputeLoss(model)
 
-        use_new_data()
+        use_new_data(args,model,compute_loss,train_data)
         
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
