@@ -273,7 +273,9 @@ def run(
                 if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--epoch_{epoch_no}'
                 if not confidence==None: file = file / f'{confidence}_{conf_thres}'
                 file.mkdir(parents=True, exist_ok=True)
-                if confidence=='low': shutil.copyfile(paths[si], file / (path.stem + '.jpg') )
+                if confidence=='low': 
+                    # print(f'copying file from {paths[si]} to {file/(path.stem+".jpg")}')
+                    shutil.copyfile(paths[si], file / (path.stem + '.jpg') )
                 file = file / (path.stem + '.txt')
                 save_one_txt(predn, save_conf, shape, file)
                 

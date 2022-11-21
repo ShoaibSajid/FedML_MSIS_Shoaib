@@ -75,6 +75,10 @@ new_data_args:
   new_data: "waymo"
   new_data_conf: "./data/3class_waymo.yaml" # yolo
   new_data_num_images: 500
+  new_data_min_epoch: 0
+  use_new_data: True
+  use_new_data_pseudos: True # GT is False
+  use_new_data_recover: False
   tmp_merge_file: "../../../../merged_list.txt"
   new_deepsort_config: "Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml"
   conf_thres: 0.5

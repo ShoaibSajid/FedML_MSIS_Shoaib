@@ -66,11 +66,18 @@ if use_shoaib_code:
         net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
         return net_dataidx_map
 
-    def merge_training_lists(args):
+    def merge_training_lists(args, org_files = [], new_train_path = []):
         
-        org_files = args.org_data
-        new_train_path = args.new_pseudos_recovered
-        new_files = os.listdir(new_train_path)
+        if org_files==[]:
+            org_files = args.org_data, new_train_path = args.new_pseudos_recovered
+        
+        isfile = os.path.isfile(new_train_path)
+        
+        if isfile:
+            with open(new_train_path) as f:
+                new_files = f.readlines()
+        else:
+            new_files = os.listdir(new_train_path)
         
         LOGGER.info(colorstr(args.color_str,"bold", \
             f"\n\tRound {args.round_idx}: Client {args.client_id}: Merging {len(org_files)} original training data {args.data_conf} with {len(new_files)} recovered pseudo labels of new data {new_train_path}.\n"))
@@ -79,7 +86,8 @@ if use_shoaib_code:
             for line in org_files:
                 outfile.write(line+'\n')
             for line in new_files:
-                outfile.write(os.path.join(new_train_path,line))
+                outtext = os.path.join(new_train_path,line) if isfile else line+'\n'
+                outfile.write(outtext)
                 
         return args.tmp_merge_file
 
@@ -137,31 +145,31 @@ if use_shoaib_code:
             
         return dataloader
 
-    def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
+    def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id,conf_thresh=0.5):
         """
         Generate pseudo labels
         """
-        for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
-            LOGGER.info(colorstr(args.color_str,"bold", \
-                        f"\n\tRound {args.round_idx}: Client {args.client_id}: Generating {conf} confidence labels at {thresh} threshold.\n"))
-            results, maps, _ =  pseudos.run(data            = data          ,
-                                            batch_size      = batch_size    ,
-                                            imgsz           = imgsz         ,
-                                            half            = half          ,
-                                            model           = model         ,
-                                            single_cls      = single_cls    ,
-                                            dataloader      = dataloader    ,
-                                            save_dir        = save_dir      ,
-                                            plots           = plots         ,
-                                            compute_loss    = compute_loss  ,
-                                            
-                                            save_txt        = True          ,
-                                            save_conf       = True          ,
-                                            epoch_no        = epoch_no      ,
-                                            host_id         = host_id       ,
-                                            conf_thres      = thresh        ,   
-                                            confidence      = conf                                     
-                                            )
+        conf = 'low' if conf_thresh<0.5 else 'high'
+        LOGGER.info(colorstr(args.color_str,"bold", \
+                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Generating {conf} confidence labels at {conf_thresh} threshold.\n"))
+        results, maps, _ =  pseudos.run(data            = data          ,
+                                        batch_size      = batch_size    ,
+                                        imgsz           = imgsz         ,
+                                        half            = half          ,
+                                        model           = model         ,
+                                        single_cls      = single_cls    ,
+                                        dataloader      = dataloader    ,
+                                        save_dir        = save_dir      ,
+                                        plots           = plots         ,
+                                        compute_loss    = compute_loss  ,
+                                        
+                                        save_txt        = True          ,
+                                        save_conf       = True          ,
+                                        epoch_no        = epoch_no      ,
+                                        host_id         = host_id       ,
+                                        conf_thres      = conf_thresh   ,   
+                                        confidence      = conf                                     
+                                        )
 
     def recover_labels(dataloader, save_dir, epoch_no, host_id, args):
         from pathlib import Path            
@@ -195,7 +203,7 @@ if use_shoaib_code:
             
             source = save_dir / 'labels' 
             source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
-            source = source / f'low_0.001'
+            source = source / f'low_0.01'
             # source = source / f'high_0.5'
             source.mkdir(parents=True, exist_ok=True)
             source = str(source)
@@ -341,52 +349,71 @@ class YOLOv5Trainer(ClientTrainer):
 
         # -------------------------------- Shoaib Code --------------------------------------- #
         
-        if (use_shoaib_code) and (args.round_idx > 50)  and (args.rank in args.psuedo_gen_on_clients): # if epoch>0 or True: 
+        if (use_shoaib_code):
+            if args.use_new_data and (args.round_idx > args.new_data_min_epoch)  and (args.rank in args.psuedo_gen_on_clients): 
+                try:
+                    if args.use_new_data_recover:
+                        args.org_data = train_data.dataset.img_files
+                        args.new_data = check_dataset(args.new_data_conf)['train']
+                        if args.use_new_data_pseudos:
+                            # Remove old labels
+                            if os.path.isdir(self.args.save_dir/'labels'):     
+                                LOGGER.info(colorstr(args.color_str,"bold", \
+                                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Removing old label files if present at {self.args.save_dir/'labels'}\n"))
+                                shutil.rmtree(self.args.save_dir/'labels')
+                            
+                            # Load new dataset equal to args.new_data_num_images from args.new_data
+                            LOGGER.info(colorstr(args.color_str,"bold", \
+                                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]\n"))
+                            new_dataloader = get_new_data(args.new_data,args)
+                            
+                            # Generate Pseudo Labels for new dataset
+                            pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                            batch_size      =   args.batch_size,
+                                            imgsz           =   args.img_size[0],
+                                            half            =   False,
+                                            model           =   model,
+                                            single_cls      =   False,
+                                            dataloader      =   new_dataloader,
+                                            save_dir        =   self.args.save_dir,
+                                            plots           =   False,
+                                            compute_loss    =   compute_loss, 
+                                            args            =   args,
+                                            epoch_no        =   0,
+                                            host_id         =   host_id
+                                            )
+                            
+                            # Run Forward and Backward Bounding Box Recovery
+                            args.new_pseudos_recovered = recover_labels( dataloader      =   new_dataloader,
+                                                                    save_dir        =   self.args.save_dir,
+                                                                    epoch_no        =   0,
+                                                                    host_id         =   host_id,
+                                                                    args            =   args,
+                                                                    )
+                        
+                            # train data = train data + pseudo labels    
+                            args.mixed_train_data_path = merge_training_lists(args, org_files = args.org_data, new_train_path = args.new_pseudos_recovered)
+                            
+                            LOGGER.info(colorstr(args.color_str,"bold", \
+                                f"\n\tRound {args.round_idx}: Client {args.client_id}: Creating the dataloader using original and pseudo label training data.\n"))
+                            mixed_data = get_new_data(args.mixed_train_data_path,args)
+                            train_data = mixed_data
+                        else:
+                            # train data = train data + pseudo labels    
+                            args.mixed_train_data_path = merge_training_lists(args, org_files = args.org_data, new_train_path = args.new_data)
+                            
+                            LOGGER.info(colorstr(args.color_str,"bold", \
+                                f"\n\tRound {args.round_idx}: Client {args.client_id}: Creating the dataloader using original and pseudo label training data.\n"))
+                            mixed_data = get_new_data(args.mixed_train_data_path,args)
+                            train_data = mixed_data
+                except Exception as e:
+                    
+                    LOGGER.info(colorstr("bright_red","bold", \
+                        f"\n\tRound {args.round_idx}: Client {args.client_id}: Trouble loading the pseudo labels.\n\tError: {e}\n"))
+        else:
+            LOGGER.info(colorstr("bright_green","bold", \
+                f"\n\tRound {args.round_idx}: Client {args.client_id}:  Continue with original data only.\n"))
             
-            # Remove old labels
-            if os.path.isdir(self.args.save_dir/'labels'):     
-                LOGGER.info(colorstr(args.color_str,"bold", \
-                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Removing old label files if present at {self.args.save_dir/'labels'}\n"))
-                shutil.rmtree(self.args.save_dir/'labels')
-            
-            # Load new dataset equal to args.new_data_num_images from args.new_data
-            args.org_data = train_data.dataset.img_files
-            args.new_data = check_dataset(args.new_data_conf)['train']
-            LOGGER.info(colorstr(args.color_str,"bold", \
-                    f"\n\tRound {args.round_idx}: Client {args.client_id}: Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]\n"))
-            new_dataloader = get_new_data(args.new_data,args)
-            
-            # Generate Pseudo Labels for new dataset
-            pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                            batch_size      =   args.batch_size,
-                            imgsz           =   args.img_size[0],
-                            half            =   False,
-                            model           =   model,
-                            single_cls      =   False,
-                            dataloader      =   new_dataloader,
-                            save_dir        =   self.args.save_dir,
-                            plots           =   False,
-                            compute_loss    =   compute_loss, 
-                            args            =   args,
-                            epoch_no        =   0,
-                            host_id         =   host_id
-                            )
-            
-            # Run Forward and Backward Bounding Box Recovery
-            args.new_pseudos_recovered = recover_labels( dataloader      =   new_dataloader,
-                                                    save_dir        =   self.args.save_dir,
-                                                    epoch_no        =   0,
-                                                    host_id         =   host_id,
-                                                    args            =   args,
-                                                    )
-        
-            # train data = train data + pseudo labels    
-            args.mixed_train_data_path = merge_training_lists(args)
-            LOGGER.info(colorstr(args.color_str,"bold", \
-                f"\n\tRound {args.round_idx}: Client {args.client_id}: Creating the dataloader using original and pseudo label training data.\n"))
-            mixed_data = get_new_data(args.mixed_train_data_path,args)
-            train_data = mixed_data
-    
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         logging.info("Epoch gpu_mem box obj cls total targets img_size time")
@@ -562,9 +589,21 @@ class YOLOv5Trainer(ClientTrainer):
                     #f"client_{host_id}_test_box_loss": np.float(results[4]),
                     #f"client_{host_id}_test_obj_loss": np.float(results[5]),
                     #f"client_{host_id}_test_cls_loss": np.float(results[6]),
+                    f"client_{host_id}_round_idx": args.round_idx,
                     
                 }
             )
+        
+        for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+            MLOpsProfilerEvent.log_to_wandb(
+                    {
+                        f"client_{host_id}_round_idx": args.round_idx,
+                        f"client_map_{cls}": maps[i],
+                        
+                    }
+                )
+        
+        
         logging.info(f"mAPs of all class in a list {maps}")
 
     

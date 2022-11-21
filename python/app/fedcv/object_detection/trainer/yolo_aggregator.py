@@ -56,7 +56,7 @@ class YOLOAggregator(ServerAggregator):
         host_id = int(list(args.client_id_list)[1])
         logging.info(f"\n#########################| Server ID {host_id} performs evaluation |############################\n")
         results, maps, _ = validate.run(data=data_dict,
-                                        batch_size=128,
+                                        batch_size=args.batch_size,
                                         imgsz=args.img_size[0],
                                         half=half,
                                         model=model,
