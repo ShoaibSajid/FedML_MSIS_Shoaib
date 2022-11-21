@@ -144,7 +144,7 @@ def create_dataloader(
     loader = (
         DataLoader if image_weights else InfiniteDataLoader
     )  # only DataLoader allows for attribute updates
-    logging.info(f"\nNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
+    logging.info(f"\n\tNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
     return (
         loader(
             dataset,
@@ -367,7 +367,7 @@ class LoadImagesAndLabels(Dataset):
             0,
             [],
         )  # number missing, found, empty, corrupt, messages
-        desc = f"{prefix}Scanning '{path.parent / path.stem}' images and labels..."
+        desc = f"\t{prefix}Scanning '{path.parent / path.stem}' images and labels..."
         with Pool(NUM_THREADS) as pool:
             pbar = tqdm(
                 pool.imap(
@@ -390,7 +390,7 @@ class LoadImagesAndLabels(Dataset):
 
         pbar.close()
         if msgs:
-            LOGGER.info("\n".join(msgs))
+            LOGGER.info("\n\t".join(msgs))
         if nf == 0:
             LOGGER.warning(
                 f"{prefix}WARNING: No labels found in {path}. See {HELP_URL}"
@@ -402,7 +402,7 @@ class LoadImagesAndLabels(Dataset):
         try:
             np.save(path, x)  # save cache for next time
             path.with_suffix(".cache.npy").rename(path)  # remove .npy suffix
-            LOGGER.info(f"{prefix}New cache created: {path}")
+            LOGGER.info(f"\t{prefix}New cache created: {path}")
         except Exception as e:
             LOGGER.warning(
                 f"{prefix}WARNING: Cache directory {path.parent} is not writeable: {e}"

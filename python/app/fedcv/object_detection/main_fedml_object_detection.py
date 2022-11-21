@@ -6,7 +6,7 @@ from trainer.yolo_aggregator import YOLOAggregator
 if __name__ == "__main__":
     # init FedML framework
     args = fedml.init()
-
+    
     # init device
     device = fedml.device.get_device(args)
 

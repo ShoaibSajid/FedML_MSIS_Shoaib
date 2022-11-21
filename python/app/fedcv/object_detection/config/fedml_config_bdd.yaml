@@ -25,7 +25,7 @@ model_args:
   yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
-  weights: 'best.pt' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
+  weights: 'none' #'best.pt' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS
@@ -75,7 +75,7 @@ tracking_args:
 new_data_args:
   new_data: "waymo"
   new_data_conf: "./data/3class_waymo.yaml" # yolo
-  new_data_num_images: 500
+  new_data_num_images: 80
   new_data_min_epoch: -1
 
   use_new_data: True
@@ -91,3 +91,4 @@ new_data_args:
   iou_thres: 0.6
   psuedo_gen_on_clients: [2]
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
+  run_name: "FedML_S1C2_TTT"

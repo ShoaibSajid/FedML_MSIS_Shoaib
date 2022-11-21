@@ -191,6 +191,25 @@ if use_shoaib_code:
         net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
         return net_dataidx_map
 
+
+    def copy_images(args,target):
+        new_files=[]
+        merged_dir = os.path.abspath(os.path.split(args.path_low)[0])
+        target = os.path.abspath(target)
+        for _file in os.listdir(merged_dir):
+            if _file.endswith('.jpg'):
+                shutil.copyfile(os.path.join(merged_dir,_file), os.path.join( target, os.path.basename(_file)) )
+                
+
+    def move_images(args,target):
+        new_files=[]
+        merged_dir = os.path.abspath(os.path.split(args.path_low)[0])
+        target = os.path.abspath(target)
+        for _file in os.listdir(merged_dir):
+            if _file.endswith('.jpg'):
+                shutil.move(os.path.join(merged_dir,_file), os.path.join( target, os.path.basename(_file)) )
+                
+                
     def merge_training_lists(args, org_files = [], new_train_path = []):
         
         if org_files==[]:
@@ -382,12 +401,14 @@ if use_shoaib_code:
             forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
             backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
             merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
-        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery and save at {opt_merge.merged}.")
+        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.")
         merge(opt_merge)
+        
+        _log_it(args,f"Move the images to the Recover-Merged directory for next training.")
+        move_images(args,opt_merge.merged)
             
         return opt_merge.merged
     
-
 def process_batch(detections, labels, iouv):
     """
     Return correct prediction matrix
@@ -501,12 +522,12 @@ class YOLOv5Trainer(ClientTrainer):
         
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
-        logging.info("Epoch gpu_mem box obj cls total targets img_size time")
+        logging.info("\tEpoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
             model.train()
             t = time.time()
             batch_loss = []
-            logging.info("Trainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
+            logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
             
             LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {len(train_data.dataset.labels)} images.\n"))
             for (batch_idx, batch) in enumerate(train_data):
