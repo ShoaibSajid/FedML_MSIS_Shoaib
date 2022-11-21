@@ -382,7 +382,7 @@ if use_shoaib_code:
             forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
             backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
             merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
-        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery and save at {merged}.")
+        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery and save at {opt_merge.merged}.")
         merge(opt_merge)
             
         return opt_merge.merged
