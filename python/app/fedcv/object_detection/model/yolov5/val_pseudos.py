@@ -135,6 +135,7 @@ def run(
         host_id=None,
         confidence=None
 ):
+    file=[]
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -354,7 +355,7 @@ def run(
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t, file
 
 
 def parse_opt():
