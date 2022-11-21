@@ -6,11 +6,9 @@
 
 
 path: ../../
-#train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
-# train: ../../../../BDD/train_20K.txt  #hackathon_train.txt   #train_5K.txt
-train: ../../../../BDD/val_2K.txt  #hackathon_train.txt   #train_5K.txt
+train: ../../../../BDD/train_30K.txt  #hackathon_train.txt   #train_5K.txt
 #val: ../../../../BDD/val_bdd.txt
-val: ../../../../BDD/val_2K.txt
+val: ../../../../BDD/val_5K.txt
 test: ../../../../BDD/test_bdd.txt
 
 
@@ -20,6 +18,3 @@ names: ['car', 'bus', 'truck', 'motorcycle', 'bicycle',
         'trailer', 'train', 'rider', 'pedestrian', 'traffic light',
         'traffic sign', 'other vehicle', 'other person']
 
-        # 0 vehicle
-        # 1 rider
-        # 2 pedestrian
