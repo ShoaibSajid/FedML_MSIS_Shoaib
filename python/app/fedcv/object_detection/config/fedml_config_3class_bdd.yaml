@@ -92,4 +92,4 @@ new_data_args:
   conf_thres: 0.5
   iou_thres: 0.6
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
-  run_name: "FedML_S1C2_TTT"
+  run_name: "UseRecoveredPseudos_3C"

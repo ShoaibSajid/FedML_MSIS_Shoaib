@@ -49,6 +49,8 @@ class YOLOAggregator(ServerAggregator):
         save_dir = Path(args.save_dir)
         # save_dir = Path(args.opt["save_dir"])
         model = self.model
+        model.eval()
+        model.to(device)
         compute_loss = ComputeLoss(model)
         data_dict = data_dict or check_dataset(args.data_conf) 
         # data_dict = data_dict or check_dataset(args.opt["data"])
@@ -64,7 +66,8 @@ class YOLOAggregator(ServerAggregator):
                                         dataloader=test_data,
                                         save_dir=save_dir,
                                         plots=plots,
-                                        compute_loss=compute_loss
+                                        compute_loss=compute_loss,
+                                        device=device
                                         )
         #return results, maps
         
@@ -78,6 +81,14 @@ class YOLOAggregator(ServerAggregator):
                     f"Server_{host_id}_test_obj_loss": np.float(results[5]),
                     f"Server_{host_id}_test_cls_loss": np.float(results[6]),
                     
+                }
+            )
+        
+        for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+            MLOpsProfilerEvent.log_to_wandb(
+                {
+                    f"Server_map_{cls}": maps[i],
+                    f"Round_No": args.round_idx,
                 }
             )
         logging.info(f"mAPs of all class in a list {maps}")

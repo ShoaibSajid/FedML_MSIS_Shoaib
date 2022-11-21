@@ -367,7 +367,7 @@ class LoadImagesAndLabels(Dataset):
             0,
             [],
         )  # number missing, found, empty, corrupt, messages
-        desc = f"\t{prefix}Scanning '{path.parent / path.stem}' images and labels..."
+        desc = f"          {prefix}Scanning '{path.parent / path.stem}' images and labels..."
         with Pool(NUM_THREADS) as pool:
             pbar = tqdm(
                 pool.imap(

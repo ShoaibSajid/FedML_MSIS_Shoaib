@@ -57,9 +57,9 @@ if use_shoaib_code:
         
         
         # -------------------------------- Shoaib Code --------------------------------------- #
+        args.curr_step=0
         if args.use_new_data and (args.round_idx > args.new_data_min_epoch)  and (args.rank in args.psuedo_gen_on_clients): 
             try:
-                args.curr_step=0
                 args.org_data = train_data.dataset.img_files
                 args.new_data = check_dataset(args.new_data_conf)['train']
                 
@@ -704,9 +704,8 @@ class YOLOv5Trainer(ClientTrainer):
         for i,cls in enumerate(check_dataset(args.data_conf)['names']):
             MLOpsProfilerEvent.log_to_wandb(
                     {
-                        f"client_{host_id}_round_idx": args.round_idx,
                         f"client_map_{cls}": maps[i],
-                        
+                        f"Round_No": args.round_idx,
                     }
                 )
         
