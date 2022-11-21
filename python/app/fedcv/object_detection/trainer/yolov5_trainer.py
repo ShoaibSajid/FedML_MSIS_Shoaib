@@ -367,24 +367,22 @@ if use_shoaib_code:
         opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-FW'
         opt_recovery.reverse= False
         with torch.no_grad():
-            _log_it(args,f"Performing pseudo label recovery in Forward direction.")
+            _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output}.")
             recover.detect(opt_recovery,args)         
-            print(f"\n\n\n")
 
         # Recover in Backward
         opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-BW'
         opt_recovery.reverse= True
         with torch.no_grad():
-            _log_it(args,f"Performing pseudo label recovery in Backward direction.")
+            _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output}.")
             recover.detect(opt_recovery,args)
-            print(f"\n\n\n")
 
         # Merge
         class opt_merge(object):
             forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
             backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
             merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
-        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.")
+        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery and save at {merged}.")
         merge(opt_merge)
             
         return opt_merge.merged
