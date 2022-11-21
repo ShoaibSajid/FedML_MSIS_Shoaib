@@ -235,8 +235,13 @@ class LoadImagesAndLabels(Dataset):
 
         # dataidxs
         if dataidxs is not None:
-            self.img_files = [self.img_files[i - 1] for i in dataidxs]
-            self.img_files = sorted(self.img_files)
+            try:
+                self.img_files = [self.img_files[i - 1] for i in dataidxs]
+                self.img_files = sorted(self.img_files)
+            except:
+                for i in dataidxs:
+                    print(f'i is {i}')
+                    self.img_files[i - 1]
 
         self.data_size = len(self.img_files)
         self.label_files = img2label_paths(self.img_files)  # labels
