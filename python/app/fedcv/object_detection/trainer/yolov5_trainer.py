@@ -692,11 +692,14 @@ class YOLOv5Trainer(ClientTrainer):
                     f"client_{host_id}_mean_precision": np.float(results[0]),
                     f"client_{host_id}_mean_recall": np.float(results[1]),
                     f"client_{host_id}_map@50": np.float(results[2]),
+                    f"map@50_all_classes": np.float(results[2]),
                     f"client_{host_id}_map": np.float(results[3]),
+                    f"map_all_classes": np.float(results[3]),
                     #f"client_{host_id}_test_box_loss": np.float(results[4]),
                     #f"client_{host_id}_test_obj_loss": np.float(results[5]),
                     #f"client_{host_id}_test_cls_loss": np.float(results[6]),
                     f"client_{host_id}_round_idx": args.round_idx,
+                    f"Round": args.round_idx,
                     
                 }
             )
@@ -704,7 +707,7 @@ class YOLOv5Trainer(ClientTrainer):
         for i,cls in enumerate(check_dataset(args.data_conf)['names']):
             MLOpsProfilerEvent.log_to_wandb(
                     {
-                        f"client_map_{cls}": maps[i],
+                        f"map_{cls}": maps[i],
                         f"Round_No": args.round_idx,
                     }
                 )

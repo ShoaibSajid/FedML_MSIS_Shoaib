@@ -82,7 +82,7 @@ new_data_args:
 
   use_new_data: True
   use_new_data_pseudos: True # False
-  use_new_data_recover: True
+  use_new_data_recover: False
 
   tmp_merge_file: "../../../../merged_list.txt"
   tmp_gt_files: "../../../../tmp.txt"
@@ -92,4 +92,4 @@ new_data_args:
   conf_thres: 0.5
   iou_thres: 0.6
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
-  run_name: "UseRecoveredPseudos_3C"
+  run_name: "UseUnrecoveredPseudos_3C"

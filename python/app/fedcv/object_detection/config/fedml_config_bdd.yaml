@@ -75,12 +75,12 @@ tracking_args:
 new_data_args:
   new_data: "waymo"
   new_data_conf: "./data/3class_waymo.yaml" # yolo
-  new_data_num_images: 80
-  new_data_min_epoch: 10
+  new_data_num_images: 1000
+  new_data_min_epoch: 3
 
   use_new_data: True
   use_new_data_pseudos: True # False
-  use_new_data_recover: True
+  use_new_data_recover: False
 
   tmp_merge_file: "../../../../merged_list.txt"
   tmp_gt_files: "../../../../tmp.txt"
@@ -92,4 +92,4 @@ new_data_args:
   psuedo_gen_on_clients: [2]
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
 
-  run_name: "FedML_S1C2_TTT"
+  run_name: "unrecoveredpseudos_BDD20K"
