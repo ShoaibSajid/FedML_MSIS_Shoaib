@@ -76,14 +76,19 @@ class YOLOAggregator(ServerAggregator):
                     f"Server_{host_id}_mean_precision": np.float(results[0]),
                     f"Server_{host_id}_mean_recall": np.float(results[1]),
                     f"Server_{host_id}_map@50": np.float(results[2]),
-                    f"map@50_all_classes": np.float(results[2]),
                     f"Server_{host_id}_map": np.float(results[3]),
-                    f"map_all_classes": np.float(results[3]),
                     f"Server_{host_id}_test_box_loss": np.float(results[4]),
                     f"Server_{host_id}_test_obj_loss": np.float(results[5]),
                     f"Server_{host_id}_test_cls_loss": np.float(results[6]),
                     f"Server_{host_id}_round_idx": args.round_idx,
-                    f"Round": args.round_idx,
+                    f"mean_precision": np.float(results[0]),
+                    f"mean_recall": np.float(results[1]),
+                    f"map@50_all_classes": np.float(results[2]),
+                    f"map_all_classes": np.float(results[3]),
+                    f"test_box_loss": np.float(results[4]),
+                    f"test_obj_loss": np.float(results[5]),
+                    f"test_cls_loss": np.float(results[6]),
+                    f"Round_No": args.round_idx,
                     
                 }
             )
@@ -296,6 +301,7 @@ class YOLOAggregator(ServerAggregator):
                 f"test_map50": np.float(map50),
                 f"test_map": np.float(map),
                 f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
+                f"Round_No": args.round_idx,
             }
         )
         
@@ -307,6 +313,7 @@ class YOLOAggregator(ServerAggregator):
                 f"test_map50": np.float(map50),
                 f"test_map": np.float(map),
                 f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
+                f"Round_No": args.round_idx,
             }
         )
 

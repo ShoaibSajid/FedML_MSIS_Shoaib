@@ -1,7 +1,7 @@
 
 path: ../../
-train: ../../../../3class_bdd/3class_bdd_train.txt  
-val: ../../../../3class_bdd/3class_bdd_val.txt
+train: ../../../../3class_bdd/train_10K.txt  
+val: ../../../../3class_bdd/val_1K.txt
 test: ../../../../3class_bdd/3class_bdd_val.txt
 
 nc: 3

@@ -3,6 +3,7 @@ import logging
 import math
 import time
 import os
+import datetime
 
 from pathlib import Path
 import numpy as np
@@ -63,80 +64,87 @@ if use_shoaib_code:
                 args.org_data = train_data.dataset.img_files
                 args.new_data = check_dataset(args.new_data_conf)['train']
                 
-                
                 if args.use_new_data_pseudos:# TODO: Should we use pseudo labels or GT ?
-                    # Remove old labels
-                    if os.path.isdir(args.save_dir/'labels'):     
-                        _log_it(args,f"Removing old label files if present at {args.save_dir/'labels'}")
-                        shutil.rmtree(args.save_dir/'labels')
                     
-                    # Load new dataset equal to args.new_data_num_images from args.new_data
-                    _log_it(args,f"Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]")
-                    new_dataloader = get_new_data(args.new_data,args)
+                    if not args.client_map50_all[args.client_id]>0.3:
+                        _log_it(args,f"mAP too low. More training required before generating pseudo labels.")
+                        return train_data
                     
-                    
+                    else:
+                        # Remove old labels
+                        # if os.path.isdir(args.save_dir/'labels'):   
+                        _dir = args.save_dir/'labels'/f'Trainer_{args.client_id}--Round_{args.round_idx}'  
+                        if os.path.isdir(_dir):     
+                            _log_it(args,f"Removing old label files if present at {_dir}")
+                            shutil.rmtree(_dir)
                         
-                    # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
-                    if not args.use_new_data_recover:
-                        # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
-                        _f =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                                                model           =   model,
-                                                dataloader      =   new_dataloader,
-                                                compute_loss    =   compute_loss, 
-                                                args            =   args,
-                                                conf_thresh     =   0.5,
-                                                save_conf       =   False,
-                                                )
-
-                        if _f==[]: 
-                            return train_data   #FIXME: Return original dataloader
-                        else:
-                            args.pseudo_label_path = os.path.split(_f)[0]    
-                            # Merge un-recovered pseudo labels of new data with original data
-                            # print(args.pseudo_label_path)
-                            new_train_path = args.pseudo_label_path
-
-
-
-
-
-                    # ----------------- Generate Pseudo Labels and perform missing box recovery --------------------
-                    if args.use_new_data_recover: #TODO: Should we apply recovery  on the generated pseudo labels 
+                        # Load new dataset equal to args.new_data_num_images from args.new_data
+                        _log_it(args,f"Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]")
+                        new_dataloader = get_new_data(args.new_data,args)
                         
-
-                        # # Generate HIGH Confidence Pseudo Labels for new dataset
-                        # args.path_high = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                        #                         model           =   model,
-                        #                         dataloader      =   new_dataloader,
-                        #                         compute_loss    =   compute_loss, 
-                        #                         args            =   args,
-                        #                         conf_thresh     =   args.conf_thresh_high,
-                        #                         save_conf       =   False,
-                        #                         )
-
-                        # if args.path_high==[]: 
-                        #     return train_data   #FIXME: Return original dataloader
                         
-                         
-                        # Generate Pseudo Labels for new dataset
-                        args.path_low = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                                                        model           =   model,
-                                                        dataloader      =   new_dataloader,
-                                                        compute_loss    =   compute_loss, 
-                                                        args            =   args,
-                                                        conf_thresh     =   args.conf_thresh_low,
-                                                        )
-                        
-                        if args.path_low==[]: 
-                            return train_data   #FIXME: Return original dataloader
-                        
-                        # Run Forward and Backward Bounding Box Recovery
-                        args.new_pseudos_recovered = recover_labels( args )
-                    
-                        # Merge recovered pseudos of new data with original data
-                        new_train_path = args.new_pseudos_recovered
+                            
+                        # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
+                        if not args.use_new_data_recover:
+                            # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
+                            _f =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                    model           =   model,
+                                                    dataloader      =   new_dataloader,
+                                                    compute_loss    =   compute_loss, 
+                                                    args            =   args,
+                                                    conf_thresh     =   0.5,
+                                                    save_conf       =   False,
+                                                    )
 
-                    
+                            if _f==[]: 
+                                return train_data   #FIXME: Return original dataloader
+                            else:
+                                args.pseudo_label_path = os.path.split(_f)[0]    
+                                # Merge un-recovered pseudo labels of new data with original data
+                                # print(args.pseudo_label_path)
+                                new_train_path = args.pseudo_label_path
+
+
+
+
+
+                        # ----------------- Generate Pseudo Labels and perform missing box recovery --------------------
+                        if args.use_new_data_recover: #TODO: Should we apply recovery  on the generated pseudo labels 
+                            
+
+                            # # Generate HIGH Confidence Pseudo Labels for new dataset
+                            # args.path_high = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                            #                         model           =   model,
+                            #                         dataloader      =   new_dataloader,
+                            #                         compute_loss    =   compute_loss, 
+                            #                         args            =   args,
+                            #                         conf_thresh     =   args.conf_thresh_high,
+                            #                         save_conf       =   False,
+                            #                         )
+
+                            # if args.path_high==[]: 
+                            #     return train_data   #FIXME: Return original dataloader
+                            
+                            
+                            # Generate Pseudo Labels for new dataset
+                            args.path_low = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                            model           =   model,
+                                                            dataloader      =   new_dataloader,
+                                                            compute_loss    =   compute_loss, 
+                                                            args            =   args,
+                                                            conf_thresh     =   args.conf_thresh_low,
+                                                            )
+                            
+                            if args.path_low==[]: 
+                                return train_data   #FIXME: Return original dataloader
+                            
+                            # Run Forward and Backward Bounding Box Recovery
+                            args.new_pseudos_recovered = recover_labels( args )
+                        
+                            # Merge recovered pseudos of new data with original data
+                            new_train_path = args.new_pseudos_recovered
+
+                        
 
 
                 else:# Don't use pseudo labels
@@ -153,7 +161,7 @@ if use_shoaib_code:
                 
                 train_data = get_new_data(args.mixed_train_data_path,args,numimgs=numimgs)
             
-            
+                
             except Exception as e:
                 _log_it(args,f"Trouble loading the pseudo labels.\n\tError: {e}")
         else:
@@ -300,7 +308,7 @@ if use_shoaib_code:
         Generate pseudo labels
         """
         
-        epoch_no        =   0
+        epoch_no        =   args.round_idx
         half            =   False
         single_cls      =   False
         plots           =   False
@@ -447,6 +455,8 @@ class YOLOv5Trainer(ClientTrainer):
         self.args = args
         self.round_loss = []
         self.round_idx = 0
+        args.client_map50_all = dict()
+        args.client_map_all   = dict()
 
     def get_model_params(self):
         return self.model.cpu().state_dict()
@@ -586,7 +596,13 @@ class YOLOv5Trainer(ClientTrainer):
                     f"client_{host_id}_box_loss": np.float(mloss[0]),
                     f"client_{host_id}_obj_loss": np.float(mloss[1]),
                     f"client_{host_id}_cls_loss": np.float(mloss[2]),
-                    f"client_{host_id}_total_loss": np.float(mloss.sum())
+                    f"client_{host_id}_total_loss": np.float(mloss.sum()),
+                    f"round_idx": self.round_idx,
+                    f"box_loss": np.float(mloss[0]),
+                    f"obj_loss": np.float(mloss[1]),
+                    f"cls_loss": np.float(mloss[2]),
+                    f"total_loss": np.float(mloss.sum()),
+                    f"Round_No": args.round_idx,
                 }
             )
 
@@ -599,7 +615,20 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info(
                     f"Trainer {host_id} epoch {epoch} saving model to {model_path}"
                 )
-                torch.save(model.state_dict(), model_path)
+                
+                # Old saving method
+                # torch.save(model.state_dict(), model_path)
+               
+                # Modified training method
+                ckpt = {'epoch': epoch,
+                        'model': copy.deepcopy(model).half(),
+                        'optimizer': optimizer.state_dict(),
+                        'date': datetime.now().isoformat()}
+                                # Save last, best and delete
+                torch.save(ckpt, model_path)
+                del ckpt
+
+
 
             if (epoch + 1) % self.args.frequency_of_the_test == 0:
                 logging.info("Start val on Trainer {}".format(host_id))
@@ -687,19 +716,25 @@ class YOLOv5Trainer(ClientTrainer):
                                     plots = plots,
                                     compute_loss = compute_loss)
         
+        
+        args.client_map50_all[host_id] = np.float(results[2])
+        args.client_map_all[host_id] = np.float(results[2])
+        
         MLOpsProfilerEvent.log_to_wandb(
                 {
                     f"client_{host_id}_mean_precision": np.float(results[0]),
                     f"client_{host_id}_mean_recall": np.float(results[1]),
                     f"client_{host_id}_map@50": np.float(results[2]),
-                    f"map@50_all_classes": np.float(results[2]),
                     f"client_{host_id}_map": np.float(results[3]),
+                    f"mean_precision": np.float(results[0]),
+                    f"mean_recall": np.float(results[1]),
+                    f"map@50_all_classes": np.float(results[2]),
                     f"map_all_classes": np.float(results[3]),
                     #f"client_{host_id}_test_box_loss": np.float(results[4]),
                     #f"client_{host_id}_test_obj_loss": np.float(results[5]),
                     #f"client_{host_id}_test_cls_loss": np.float(results[6]),
                     f"client_{host_id}_round_idx": args.round_idx,
-                    f"Round": args.round_idx,
+                    f"Round_No": args.round_idx,
                     
                 }
             )
@@ -835,7 +870,12 @@ class YOLOv5Trainer(ClientTrainer):
                 f"client_{host_id}_mean_precision": np.float(mp),
                 f"client_{host_id}_mean_recall":np.float(mr),
                 f"clinet_{host_id}_mAP@50":np.float(map50),
-                f"client_{host_id}_mAP@0.5:0.95":np.float(map)       
+                f"client_{host_id}_mAP@0.5:0.95":np.float(map),   
+                f"mean_precision": np.float(mp),
+                f"mean_recall":np.float(mr),
+                f"mAP@50":np.float(map50),
+                f"mAP@0.5:0.95":np.float(map),    
+                f"Round_No": args.round_idx,  
             }
         )
         nt = np.bincount(

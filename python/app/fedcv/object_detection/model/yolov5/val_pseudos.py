@@ -271,7 +271,7 @@ def run(
             # Save/log
             if save_txt:
                 file=save_dir / 'labels' 
-                if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--epoch_{epoch_no}'
+                if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--Round_{epoch_no}'
                 if not confidence==None: file = file / f'{confidence}_{conf_thres}'
                 file.mkdir(parents=True, exist_ok=True)
                 # if confidence=='low': 
