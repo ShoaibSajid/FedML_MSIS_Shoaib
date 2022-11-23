@@ -238,8 +238,13 @@ class LoadImagesAndLabels(Dataset):
 
         # dataidxs
         if dataidxs is not None:
-            self.img_files = [self.img_files[i - 1] for i in dataidxs]
-            self.img_files = sorted(self.img_files)
+            try:
+                self.img_files = [self.img_files[i - 1] for i in dataidxs]
+                self.img_files = sorted(self.img_files)
+            except:
+                for i in dataidxs:
+                    print(f'i is {i}')
+                    self.img_files[i - 1]
 
         self.data_size = len(self.img_files)
         self.label_files = img2label_paths(self.img_files)  # labels
@@ -365,7 +370,7 @@ class LoadImagesAndLabels(Dataset):
             0,
             [],
         )  # number missing, found, empty, corrupt, messages
-        desc = f"{prefix}Scanning '{path.parent / path.stem}' images and labels..."
+        desc = f"          {prefix}Scanning '{path.parent / path.stem}' images and labels..."
         with Pool(NUM_THREADS) as pool:
             pbar = tqdm(
                 pool.imap(
@@ -388,7 +393,7 @@ class LoadImagesAndLabels(Dataset):
 
         pbar.close()
         if msgs:
-            LOGGER.info("\n".join(msgs))
+            LOGGER.info("\n\t".join(msgs))
         if nf == 0:
             LOGGER.warning(
                 f"{prefix}WARNING: No labels found in {path}. See {HELP_URL}"
@@ -400,7 +405,7 @@ class LoadImagesAndLabels(Dataset):
         try:
             np.save(path, x)  # save cache for next time
             path.with_suffix(".cache.npy").rename(path)  # remove .npy suffix
-            LOGGER.info(f"{prefix}New cache created: {path}")
+            LOGGER.info(f"\t{prefix}New cache created: {path}")
         except Exception as e:
             LOGGER.warning(
                 f"{prefix}WARNING: Cache directory {path.parent} is not writeable: {e}"
@@ -851,6 +856,7 @@ def load_partition_data_coco(args, hyp, model):
     net_dataidx_map_test = partition_data(
         test_path, partition=partition, n_nets=1
     )
+
     # net_dataidx_map_test = partition_data(
     #     test_path, partition=partition, n_nets=client_number
     # )
@@ -940,7 +946,8 @@ def load_partition_data_coco(args, hyp, model):
         train_data_num_dict[client_idx] = len(dataset)
         train_data_loader_dict[client_idx] = dataloader
         test_data_loader_dict[client_idx] = testloader
-        
+    
+    
         # # FIXME: 
         # test_data_loader_dict[client_idx] = test_dataloader_global
         
@@ -948,9 +955,25 @@ def load_partition_data_coco(args, hyp, model):
         #     Client(i, train_data_loader_dict[i], len(dataset), opt, device, model, tb_writer=tb_writer,
         #            hyp=hyp, wandb=wandb))
         #
-
+    args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
     
-
+    # new_path                    = args.new_train_dir
+    # net_dataidx_map_new_data    = partition_data(new_path, partition=partition, n_nets=1)
+    # new_dataloader_global       = create_dataloader(
+    #                                     new_path,
+    #                                     imgsz_test,
+    #                                     total_batch_size,
+    #                                     gs,
+    #                                     args,  # testloader
+    #                                     hyp=hyp,
+    #                                     rect=True,
+    #                                     rank=-1,
+    #                                     pad=0.5,
+    #                                     net_dataidx_map=net_dataidx_map_new_data[0],
+    #                                     workers=args.worker_num,
+    #                               )[0]
+    
+    
     # FIXME: Testing
     test_dataloader_global = create_dataloader(
                                         test_path,

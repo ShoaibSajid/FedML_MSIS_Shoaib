@@ -49,6 +49,8 @@ class YOLOAggregator(ServerAggregator):
         save_dir = Path(args.save_dir)
         # save_dir = Path(args.opt["save_dir"])
         model = self.model
+        model.eval()
+        model.to(device)
         compute_loss = ComputeLoss(model)
         data_dict = data_dict or check_dataset(args.data_conf) 
         # data_dict = data_dict or check_dataset(args.opt["data"])
@@ -56,7 +58,7 @@ class YOLOAggregator(ServerAggregator):
         host_id = int(list(args.client_id_list)[1])
         logging.info(f"\n#########################| Server ID {host_id} performs evaluation |############################\n")
         results, maps, _ = validate.run(data=data_dict,
-                                        batch_size=128,
+                                        batch_size=args.batch_size,
                                         imgsz=args.img_size[0],
                                         half=half,
                                         model=model,
@@ -64,7 +66,8 @@ class YOLOAggregator(ServerAggregator):
                                         dataloader=test_data,
                                         save_dir=save_dir,
                                         plots=plots,
-                                        compute_loss=compute_loss
+                                        compute_loss=compute_loss,
+                                        device=device
                                         )
         #return results, maps
         
@@ -77,7 +80,24 @@ class YOLOAggregator(ServerAggregator):
                     f"Server_{host_id}_test_box_loss": np.float(results[4]),
                     f"Server_{host_id}_test_obj_loss": np.float(results[5]),
                     f"Server_{host_id}_test_cls_loss": np.float(results[6]),
+                    f"Server_{host_id}_round_idx": args.round_idx,
+                    f"mean_precision": np.float(results[0]),
+                    f"mean_recall": np.float(results[1]),
+                    f"map@50_all_classes": np.float(results[2]),
+                    f"map_all_classes": np.float(results[3]),
+                    f"test_box_loss": np.float(results[4]),
+                    f"test_obj_loss": np.float(results[5]),
+                    f"test_cls_loss": np.float(results[6]),
+                    f"Round_No": args.round_idx,
                     
+                }
+            )
+        
+        for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+            MLOpsProfilerEvent.log_to_wandb(
+                {
+                    f"map_{cls}": maps[i],
+                    f"Round_No": args.round_idx,
                 }
             )
         logging.info(f"mAPs of all class in a list {maps}")
@@ -281,6 +301,7 @@ class YOLOAggregator(ServerAggregator):
                 f"test_map50": np.float(map50),
                 f"test_map": np.float(map),
                 f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
+                f"Round_No": args.round_idx,
             }
         )
         
@@ -292,6 +313,7 @@ class YOLOAggregator(ServerAggregator):
                 f"test_map50": np.float(map50),
                 f"test_map": np.float(map),
                 f"test_loss": np.float(sum((loss.cpu() / len(test_data)).tolist())),
+                f"Round_No": args.round_idx,
             }
         )
 

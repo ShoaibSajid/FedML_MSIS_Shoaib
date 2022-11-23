@@ -3,6 +3,7 @@ import logging
 import math
 import time
 import os
+import datetime
 
 from pathlib import Path
 import numpy as np
@@ -36,52 +37,244 @@ from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
 
+use_shoaib_code=True
+if use_shoaib_code:      
 
-use_shoaib_code=False
-if use_shoaib_code:
+    import sys
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/')
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/yolov5')
+    sys.path.append('Yolov5_DeepSORT_PseudoLabels/deep_sort')
+    
     import shutil
-    from model.yolov5 import \
-        val_pseudos as \
-        pseudos  # imported to use modified yolov5 validation function!!!
+    
+    from model.yolov5 import val_pseudos as pseudos  # imported to use modified yolov5 validation function!!!
     from Yolov5_DeepSORT_PseudoLabels import trackv2_from_file as recover
     from Yolov5_DeepSORT_PseudoLabels.merge_forward_backward_v2 import merge 
 
     from data.data_loader import create_dataloader
+    import yaml
+    
+    def use_new_data(args,model,compute_loss,train_data):
+        
+        
+        # -------------------------------- Shoaib Code --------------------------------------- #
+        args.curr_step=0
+        if args.use_new_data and (args.round_idx > args.new_data_min_epoch)  and (args.rank in args.psuedo_gen_on_clients): 
+            try:
+                args.org_data = train_data.dataset.img_files
+                args.new_data = check_dataset(args.new_data_conf)['train']
+                
+                if args.use_new_data_pseudos:# TODO: Should we use pseudo labels or GT ?
+                    
+                    if not args.client_map50_all[args.client_id]>0.3:
+                        _log_it(args,f"mAP too low. More training required before generating pseudo labels.")
+                        return train_data
+                    
+                    else:
+                        # Remove old labels
+                        # if os.path.isdir(args.save_dir/'labels'):   
+                        _dir = args.save_dir/'labels'/f'Trainer_{args.client_id}--Round_{args.round_idx}'  
+                        if os.path.isdir(_dir):     
+                            _log_it(args,f"Removing old label files if present at {_dir}")
+                            shutil.rmtree(_dir)
+                        
+                        # Load new dataset equal to args.new_data_num_images from args.new_data
+                        _log_it(args,f"Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]")
+                        new_dataloader = get_new_data(args.new_data,args)
+                        
+                        
+                            
+                        # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
+                        if not args.use_new_data_recover:
+                            # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
+                            _f =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                    model           =   model,
+                                                    dataloader      =   new_dataloader,
+                                                    compute_loss    =   compute_loss, 
+                                                    args            =   args,
+                                                    conf_thresh     =   0.5,
+                                                    save_conf       =   False,
+                                                    )
 
-    def partition_data(data_path):
+                            if _f==[]: 
+                                return train_data   #FIXME: Return original dataloader
+                            else:
+                                args.pseudo_label_path = os.path.split(_f)[0]    
+                                # Merge un-recovered pseudo labels of new data with original data
+                                # print(args.pseudo_label_path)
+                                new_train_path = args.pseudo_label_path
+
+
+
+
+
+                        # ----------------- Generate Pseudo Labels and perform missing box recovery --------------------
+                        if args.use_new_data_recover: #TODO: Should we apply recovery  on the generated pseudo labels 
+                            
+
+                            # # Generate HIGH Confidence Pseudo Labels for new dataset
+                            # args.path_high = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                            #                         model           =   model,
+                            #                         dataloader      =   new_dataloader,
+                            #                         compute_loss    =   compute_loss, 
+                            #                         args            =   args,
+                            #                         conf_thresh     =   args.conf_thresh_high,
+                            #                         save_conf       =   False,
+                            #                         )
+
+                            # if args.path_high==[]: 
+                            #     return train_data   #FIXME: Return original dataloader
+                            
+                            
+                            # Generate Pseudo Labels for new dataset
+                            args.path_low = pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                            model           =   model,
+                                                            dataloader      =   new_dataloader,
+                                                            compute_loss    =   compute_loss, 
+                                                            args            =   args,
+                                                            conf_thresh     =   args.conf_thresh_low,
+                                                            )
+                            
+                            if args.path_low==[]: 
+                                return train_data   #FIXME: Return original dataloader
+                            
+                            # Run Forward and Backward Bounding Box Recovery
+                            args.new_pseudos_recovered = recover_labels( args )
+                        
+                            # Merge recovered pseudos of new data with original data
+                            new_train_path = args.new_pseudos_recovered
+
+                        
+
+
+                else:# Don't use pseudo labels
+                    _log_it(args,f"Removing old label files if present at {args.save_dir/'labels'}")
+                    # Use ground truth data as new training data
+                    new_train_path = get_X_GTs(args)
+                    _log_it(args,f"Reading {args.new_data_num_images} GT for new dataset at {args.new_data} and save at {new_train_path}")
+                
+                #merge
+                # train data = train data + pseudo labels    
+                args.mixed_train_data_path, numimgs = merge_training_lists(args, org_files = args.org_data, new_train_path = new_train_path)        
+
+                _log_it(args,f"Creating the dataloader using original and new training data from {new_train_path}.")
+                
+                train_data = get_new_data(args.mixed_train_data_path,args,numimgs=numimgs)
+            
+                
+            except Exception as e:
+                _log_it(args,f"Trouble loading the pseudo labels.\n\tError: {e}")
+        else:
+            _log_it(args,f"Continue with original data only.")
+        
+        return train_data   
+            
+    def _log_it(args,msg):
+        args.curr_step+=1
+        LOGGER.info("\n\t"                                                                +\
+                    colorstr( "bright_green"  , "bold" , f"Step {args.curr_step}: "      )+\
+                    colorstr( "bright_blue"   , "bold" , f"Round {args.round_idx}: "     )+\
+                    colorstr( "bright_cyan"   , "bold" , f"Client {args.client_id}: "    )+\
+                    colorstr( args.color_str  , "bold" , str(msg)                        )+\
+                    "\n")
+        
+    def get_X_GTs(args):
+        import random
+        _f = open(args.tmp_gt_files, 'w')
+        [_f.write(x) for x in random.sample(population=open(args.new_data,'r').readlines(), k=args.new_data_num_images)]
+        _f.close()
+        return args.tmp_gt_files
+        
+    def partition_data(data_path,total_num=[]):
         if os.path.isfile(data_path):
             with open(data_path) as f:
                 data = f.readlines()
             n_data = len(data)
         else:
             n_data = len(os.listdir(data_path))
-        total_num = n_data
+        if total_num==[]:
+            total_num = n_data
         idxs = np.random.permutation(total_num)
         batch_idxs = np.array_split(idxs, 1)
         net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
         return net_dataidx_map
 
 
-    def get_new_data(data_path,args,hyp):
-        net_dataidx_map_test = partition_data(data_path)
+    def copy_images(args,target):
+        new_files=[]
+        merged_dir = os.path.abspath(os.path.split(args.path_low)[0])
+        target = os.path.abspath(target)
+        for _file in os.listdir(merged_dir):
+            if _file.endswith('.jpg'):
+                shutil.copyfile(os.path.join(merged_dir,_file), os.path.join( target, os.path.basename(_file)) )
+                
+
+    def move_images(args,target):
+        new_files=[]
+        merged_dir = os.path.abspath(os.path.split(args.path_low)[0])
+        target = os.path.abspath(target)
+        for _file in os.listdir(merged_dir):
+            if _file.endswith('.jpg'):
+                shutil.move(os.path.join(merged_dir,_file), os.path.join( target, os.path.basename(_file)) )
+                
+                
+    def merge_training_lists(args, org_files = [], new_train_path = []):
         
-        imgsz_test=640
-        total_batch_size=64
-        gs=32
+        if org_files==[]:
+            org_files = args.org_data, new_train_path = args.new_pseudos_recovered
         
-        testloader = create_dataloader(
-            data_path,
-            imgsz_test,
-            total_batch_size,
-            gs,
-            args,  # testloader
-            hyp=hyp,
-            rect=True,
-            rank=-1,
-            pad=0.5,
-            net_dataidx_map=net_dataidx_map_test[0],
-            workers=args.worker_num,
-            )[0]
+        isfile = os.path.isfile(new_train_path)
+        
+        if isfile:
+            with open(new_train_path) as f:
+                new_files = f.readlines()
+        else:
+            # new_files = os.listdir(new_train_path)
+            new_files=[]
+            for _file in os.listdir(new_train_path):
+                if _file.endswith('.jpg'):
+                    new_files.append(os.path.join(os.path.abspath(new_train_path),_file))
+        
+        _log_it(args,f"Merging {len(org_files)} original training data {args.data_conf} with {len(new_files)} recovered pseudo labels of new data {new_train_path}.")
+        
+        with open(args.tmp_merge_file , 'w') as outfile:
+            for line in org_files:
+                outfile.write(line+'\n')
+            for line in new_files:
+                outfile.write(line+'\n')
+                # outtext = os.path.join(new_train_path,line)+'\n'
+                # outfile.write(os.path.abspath(outtext))
+                
+        numimgs = len(org_files)+len(new_files)
+        return args.tmp_merge_file, numimgs
+
+    def get_new_data(data_path,args,numimgs=0):
+        # data_path            = args.new_data
+        imgsz_test           = args.new_dataloader_args[0]
+        total_batch_size     = args.new_dataloader_args[1]
+        gs                   = args.new_dataloader_args[2]
+        args                 = args.new_dataloader_args[3]
+        hyp                  = args.new_dataloader_args[4]
+        rect                 = args.new_dataloader_args[5]
+        rank                 = -1
+        pad                  = args.new_dataloader_args[7]
+        workers              = args.new_dataloader_args[8]
+        total_num = args.new_data_num_images if numimgs==0 else numimgs
+        net_dataidx_map_test = partition_data(data_path,total_num=total_num)
+        testloader           = create_dataloader(
+                                                data_path,
+                                                imgsz_test,
+                                                total_batch_size,
+                                                gs,
+                                                args,  # testloader
+                                                hyp=hyp,
+                                                rect=rect,
+                                                rank=rank,
+                                                pad=pad,
+                                                net_dataidx_map=net_dataidx_map_test[0],
+                                                workers=workers,
+                                                )[0]
+        return testloader
 
 
     def modify_dataset(dataloader,new_path):
@@ -110,45 +303,64 @@ if use_shoaib_code:
             
         return dataloader
 
-    def pseudo_labels(data,batch_size,imgsz,half,model,single_cls,dataloader,save_dir,plots,compute_loss,args,epoch_no,host_id):
+    def pseudo_labels(data,model,dataloader,compute_loss,args,conf_thresh=0.5,save_conf=True):
         """
         Generate pseudo labels
         """
-        for conf,thresh in zip ( ['low','high'], [0.001, 0.5]):
-            logging.info(f'Trainer {host_id } generating {conf} confidence labels for epoch {epoch_no}.')
-            results, maps, _ =  pseudos.run(data            = data          ,
-                                            batch_size      = batch_size    ,
-                                            imgsz           = imgsz         ,
-                                            half            = half          ,
-                                            model           = model         ,
-                                            single_cls      = single_cls    ,
-                                            dataloader      = dataloader    ,
-                                            save_dir        = save_dir      ,
-                                            plots           = plots         ,
-                                            compute_loss    = compute_loss  ,
-                                            
-                                            save_txt        = True          ,
-                                            save_conf       = True          ,
-                                            epoch_no        = epoch_no      ,
-                                            host_id         = host_id       ,
-                                            conf_thres      = thresh        ,   
-                                            confidence      = conf                                     
-                                            )
+        
+        epoch_no        =   args.round_idx
+        half            =   False
+        single_cls      =   False
+        plots           =   False
+        host_id         =   args.client_id
+        batch_size      =   args.batch_size
+        imgsz           =   args.img_size[0]
+        save_dir        =   args.save_dir
+        
+        conf = 'low' if conf_thresh<0.5 else 'high'   # if 'low', images will also be copied with the generated labels
+        
+        _log_it(args,f"Generating {conf} confidence labels at {conf_thresh} threshold.")
+        
+        results, maps, _t, _file =  pseudos.run(data            = data          ,
+                                        batch_size      = batch_size    ,
+                                        imgsz           = imgsz         ,
+                                        half            = half          ,
+                                        model           = model         ,
+                                        single_cls      = single_cls    ,
+                                        dataloader      = dataloader    ,
+                                        save_dir        = save_dir      ,
+                                        plots           = plots         ,
+                                        compute_loss    = compute_loss  ,
+                                        
+                                        save_txt        = True          ,
+                                        save_conf       = save_conf     ,
+                                        epoch_no        = epoch_no      ,
+                                        host_id         = host_id       ,
+                                        conf_thres      = conf_thresh   ,   
+                                        confidence      = conf                                     
+                                        )
+        
+        if _file ==[]:
+            _log_it(args,f"No labels generated due to poor predictions. Model needs more training.")
+            
+        return _file
 
-    def recover_labels(dataloader,save_dir,epoch_no,host_id):
+    def recover_labels(args):
+
+        
         from pathlib import Path            
         class opt_recovery(object):
 
             agnostic_nms        = False
             augment             = False
             classes             = None
-            config_deepsort     = 'Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml'
+            config_deepsort     = args.new_deepsort_config
             device              = ''
             dnn                 = False
             evaluate            = False
             fourcc              = 'mp4v'
             half                = False
-            imgsz               = [640, 640]
+            imgsz               = args.new_dataloader_args[0]
             max_hc_boxes        = 1000
             name                = 'Recover'
             project             = Path('runs/track')
@@ -158,48 +370,53 @@ if use_shoaib_code:
             visualize           = False
             
             deep_sort_model     = "resnet50_MSMT17"
-            yolo_model          = "best.pt"
-            conf_thres          = 0.5
-            iou_thres           = 0.6
+            yolo_model          = []
+            conf_thres          = args.conf_thres
+            iou_thres           = args.iou_thres
             save_txt            = True
             exist_ok            = True
             reverse             = False
             
-            source=save_dir / 'labels' 
-            source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
-            source = source / f'low_0.001'
+            epoch_no            =   0
+            source              =   os.path.split(args.path_low)[0]
+            host_id             =   args.client_id
+            
+            # source = save_dir / 'labels' 
+            # source = source / f'Trainer_{host_id}--epoch_{epoch_no}'
+            # source = source / f'low_0.01'
             # source = source / f'high_0.5'
-            source.mkdir(parents=True, exist_ok=True)
+            # source.mkdir(parents=True, exist_ok=True)
             source = str(source)
             output = source
+            # txt_path = str(Path(opt.output)) + '/' + os.path.basename(path)[:-4]+'.txt'
         
         # Recover in Forward
-        opt_recovery.output = opt_recovery.source+'-FW'
+        opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-FW'
         opt_recovery.reverse= False
         with torch.no_grad():
-            recover.detect(opt_recovery)
-            print(f"\n\n\n")
+            _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output}.")
+            recover.detect(opt_recovery,args)         
 
         # Recover in Backward
-        opt_recovery.output = opt_recovery.source+'-BW'
+        opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-BW'
         opt_recovery.reverse= True
         with torch.no_grad():
-            recover.detect(opt_recovery)
-            print(f"\n\n\n")
+            _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output}.")
+            recover.detect(opt_recovery,args)
 
         # Merge
         class opt_merge(object):
-            forward     = opt_recovery.source+'-FW'
-            backward    = opt_recovery.source+'-BW'
-            merged      = opt_recovery.source+'-Merged'
+            forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
+            backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
+            merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
+        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.")
         merge(opt_merge)
-
-        # Replace pseudo labels in dataset
-        modify_dataset(dataloader,opt_merge.merged)
+        
+        _log_it(args,f"Move the images to the Recover-Merged directory for next training.")
+        move_images(args,opt_merge.merged)
             
-        return dataloader
+        return opt_merge.merged
     
-
 def process_batch(detections, labels, iouv):
     """
     Return correct prediction matrix
@@ -238,6 +455,8 @@ class YOLOv5Trainer(ClientTrainer):
         self.args = args
         self.round_loss = []
         self.round_idx = 0
+        args.client_map50_all = dict()
+        args.client_map_all   = dict()
 
     def get_model_params(self):
         return self.model.cpu().state_dict()
@@ -248,6 +467,7 @@ class YOLOv5Trainer(ClientTrainer):
 
     def train(self, train_data, test_data, device, args):
         host_id = int(list(args.client_id_list)[1])
+        args.client_id = host_id
         logging.info("Start training on Trainer {}".format(host_id))
         logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
         LOGGER.info(colorstr('hyperparameters: ')+ ', '.join(f'{k}={v}' for k, v in self.hyp.items()))  ############
@@ -307,51 +527,19 @@ class YOLOv5Trainer(ClientTrainer):
 
         compute_loss = ComputeLoss(model)
 
+        if use_shoaib_code: 
+            train_data = use_new_data(args,model,compute_loss,train_data)
         
-        if use_shoaib_code:
-            get_new_data("../../../../3class_waymo/waymo_val",args,hyp)
-            
-            # if epoch>0 or True:    
-            # FIXME: Modify yolo here
-            # train data = train data + pseudo labels
-            
-            # Remove old labels
-            if os.path.isdir('runs/train/exp/labels'): shutil.rmtree('runs/train/exp/labels')
-            
-            # Generate Pseudo Labels
-            pseudo_labels(  data            =   check_dataset(args.data_conf),
-                            batch_size      =   args.batch_size,
-                            imgsz           =   args.img_size[0],
-                            half            =   False,
-                            model           =   model,
-                            single_cls      =   False,
-                            dataloader      =   train_data,
-                            save_dir        =   self.args.save_dir,
-                            plots           =   False,
-                            compute_loss    =   compute_loss, 
-                            args            =   args,
-                            epoch_no        =   0,
-                            host_id         =   host_id
-                            )
-            
-            # Run Forward and Backward Bounding Box Recovery
-            train_data = \
-            recover_labels( dataloader      =   train_data,
-                            save_dir        =   self.args.save_dir,
-                            epoch_no        =   0,
-                            host_id         =   host_id
-                            )
-            
-    
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
-        logging.info("Epoch gpu_mem box obj cls total targets img_size time")
+        logging.info("\tEpoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
             model.train()
             t = time.time()
             batch_loss = []
-            logging.info("Trainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
-
+            logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
+            
+            LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {len(train_data.dataset.labels)} images.\n"))
             for (batch_idx, batch) in enumerate(train_data):
                 imgs, targets, paths, _ = batch
                 imgs = imgs.to(device, non_blocking=True).float() / 256.0 - 0.5
@@ -408,7 +596,13 @@ class YOLOv5Trainer(ClientTrainer):
                     f"client_{host_id}_box_loss": np.float(mloss[0]),
                     f"client_{host_id}_obj_loss": np.float(mloss[1]),
                     f"client_{host_id}_cls_loss": np.float(mloss[2]),
-                    f"client_{host_id}_total_loss": np.float(mloss.sum())
+                    f"client_{host_id}_total_loss": np.float(mloss.sum()),
+                    f"round_idx": self.round_idx,
+                    f"box_loss": np.float(mloss[0]),
+                    f"obj_loss": np.float(mloss[1]),
+                    f"cls_loss": np.float(mloss[2]),
+                    f"total_loss": np.float(mloss.sum()),
+                    f"Round_No": args.round_idx,
                 }
             )
 
@@ -421,7 +615,20 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info(
                     f"Trainer {host_id} epoch {epoch} saving model to {model_path}"
                 )
-                torch.save(model.state_dict(), model_path)
+                
+                # Old saving method
+                # torch.save(model.state_dict(), model_path)
+               
+                # Modified training method
+                ckpt = {'epoch': epoch,
+                        'model': copy.deepcopy(model).half(),
+                        'optimizer': optimizer.state_dict(),
+                        'date': datetime.now().isoformat()}
+                                # Save last, best and delete
+                torch.save(ckpt, model_path)
+                del ckpt
+
+
 
             if (epoch + 1) % self.args.frequency_of_the_test == 0:
                 logging.info("Start val on Trainer {}".format(host_id))
@@ -509,18 +716,38 @@ class YOLOv5Trainer(ClientTrainer):
                                     plots = plots,
                                     compute_loss = compute_loss)
         
+        
+        args.client_map50_all[host_id] = np.float(results[2])
+        args.client_map_all[host_id] = np.float(results[2])
+        
         MLOpsProfilerEvent.log_to_wandb(
                 {
                     f"client_{host_id}_mean_precision": np.float(results[0]),
                     f"client_{host_id}_mean_recall": np.float(results[1]),
                     f"client_{host_id}_map@50": np.float(results[2]),
                     f"client_{host_id}_map": np.float(results[3]),
+                    f"mean_precision": np.float(results[0]),
+                    f"mean_recall": np.float(results[1]),
+                    f"map@50_all_classes": np.float(results[2]),
+                    f"map_all_classes": np.float(results[3]),
                     #f"client_{host_id}_test_box_loss": np.float(results[4]),
                     #f"client_{host_id}_test_obj_loss": np.float(results[5]),
                     #f"client_{host_id}_test_cls_loss": np.float(results[6]),
+                    f"client_{host_id}_round_idx": args.round_idx,
+                    f"Round_No": args.round_idx,
                     
                 }
             )
+        
+        for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+            MLOpsProfilerEvent.log_to_wandb(
+                    {
+                        f"map_{cls}": maps[i],
+                        f"Round_No": args.round_idx,
+                    }
+                )
+        
+        
         logging.info(f"mAPs of all class in a list {maps}")
 
     
@@ -643,7 +870,12 @@ class YOLOv5Trainer(ClientTrainer):
                 f"client_{host_id}_mean_precision": np.float(mp),
                 f"client_{host_id}_mean_recall":np.float(mr),
                 f"clinet_{host_id}_mAP@50":np.float(map50),
-                f"client_{host_id}_mAP@0.5:0.95":np.float(map)       
+                f"client_{host_id}_mAP@0.5:0.95":np.float(map),   
+                f"mean_precision": np.float(mp),
+                f"mean_recall":np.float(mr),
+                f"mAP@50":np.float(map50),
+                f"mAP@0.5:0.95":np.float(map),    
+                f"Round_No": args.round_idx,  
             }
         )
         nt = np.bincount(

@@ -135,6 +135,7 @@ def run(
         host_id=None,
         confidence=None
 ):
+    file=[]
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -270,10 +271,12 @@ def run(
             # Save/log
             if save_txt:
                 file=save_dir / 'labels' 
-                if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--epoch_{epoch_no}'
+                if not (epoch_no==None or host_id==None): file = file / f'Trainer_{host_id}--Round_{epoch_no}'
                 if not confidence==None: file = file / f'{confidence}_{conf_thres}'
                 file.mkdir(parents=True, exist_ok=True)
-                if confidence=='low': shutil.copyfile(paths[si], file / (path.stem + '.jpg') )
+                # if confidence=='low': 
+                # print(f'copying file from {paths[si]} to {file/(path.stem+".jpg")}')
+                shutil.copyfile(paths[si], file / (path.stem + '.jpg') )
                 file = file / (path.stem + '.txt')
                 save_one_txt(predn, save_conf, shape, file)
                 
@@ -352,7 +355,7 @@ def run(
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t, file
 
 
 def parse_opt():
