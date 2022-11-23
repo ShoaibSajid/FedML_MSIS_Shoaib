@@ -66,7 +66,7 @@ if use_shoaib_code:
                 
                 if args.use_new_data_pseudos:# TODO: Should we use pseudo labels or GT ?
                     
-                    if not args.client_map50_all[args.client_id]>0.3:
+                    if not args.client_map50_all[args.client_id]>args.min_map_for_pseudo_generation:
                         _log_it(args,f"mAP too low. More training required before generating pseudo labels.")
                         return train_data
                     
