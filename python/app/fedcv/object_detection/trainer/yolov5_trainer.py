@@ -457,6 +457,8 @@ class YOLOv5Trainer(ClientTrainer):
         self.round_idx = 0
         args.client_map50_all = dict()
         args.client_map_all   = dict()
+        args.client_map50_all[args.rank]=0
+        args.client_map_all[args.rank]=0
 
     def get_model_params(self):
         return self.model.cpu().state_dict()
