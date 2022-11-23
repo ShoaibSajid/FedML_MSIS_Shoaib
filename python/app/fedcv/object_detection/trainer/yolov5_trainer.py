@@ -622,8 +622,8 @@ class YOLOv5Trainer(ClientTrainer):
                 # Modified training method
                 ckpt = {'epoch': epoch,
                         'model': copy.deepcopy(model).half(),
-                        'optimizer': optimizer.state_dict(),
-                        'date': datetime.now().isoformat()}
+                        'optimizer': optimizer.state_dict()}
+                        # 'date': datetime.now().isoformat()}
                                 # Save last, best and delete
                 torch.save(ckpt, model_path)
                 del ckpt
@@ -706,7 +706,7 @@ class YOLOv5Trainer(ClientTrainer):
         
         host_id = int(list(args.client_id_list)[1])
         results, maps, _ = validate.run(data = data,
-                                    batch_size = 128,
+                                    batch_size = args.batch_size,#128,
                                     imgsz = imgsz,
                                     half = half,
                                     model = model,

@@ -144,7 +144,9 @@ def create_dataloader(
     loader = (
         DataLoader if image_weights else InfiniteDataLoader
     )  # only DataLoader allows for attribute updates
-    logging.info(f"\n\tNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
+    generator = torch.Generator()
+    generator.manual_seed(6148914691236517205+rank)
+    logging.info(f"\nNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
     return (
         loader(
             dataset,
@@ -156,6 +158,7 @@ def create_dataloader(
             collate_fn=LoadImagesAndLabels.collate_fn4
             if quad
             else LoadImagesAndLabels.collate_fn,
+            generator=generator
         ),
         dataset,
     )
