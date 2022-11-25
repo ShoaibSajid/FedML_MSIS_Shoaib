@@ -1,0 +1,13 @@
+
+path: ../../
+train: ../../../../3class_bdd/3class_bdd_train.txt
+
+# val: ../../../../3class_waymo/val_2k.txt
+# val: ../../../../3class_waymo/val_10k.txt
+# val: ../../../../3class_waymo/3class_waymo_val.txt
+
+test: ../../../../3class_bdd/3class_bdd_val.txt
+
+nc: 3
+
+names: ['vehicle', 'rider', 'pedestrian']
