@@ -90,6 +90,7 @@ new_data_args:
   conf_thresh_high: 0.5 # High confidence threshold for pseudo labels
   conf_thres: 0.5
   iou_thres: 0.6
-  psuedo_gen_on_clients: [2]
+  psuedo_generate_clients: [1,2,5,7]
+  psuedo_recovery_on_clients: [2,4,6,8]
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
   run_name: "FedML_S1C2_TTT"

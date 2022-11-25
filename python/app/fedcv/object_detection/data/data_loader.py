@@ -126,7 +126,7 @@ def create_dataloader(
             hyp=hyp,  # hyperparameters
             rect=rect,  # rectangular batches
             cache_images=cache,
-            single_cls=single_cls,
+            single_cls=False,
             stride=int(stride),
             pad=pad,
             image_weights=image_weights,
@@ -858,125 +858,7 @@ def load_partition_data_coco(args, hyp, model):
         test_path, partition=partition, n_nets=1
     )
 
-    # net_dataidx_map_test = partition_data(
-    #     test_path, partition=partition, n_nets=client_number
-    # )
-    train_data_loader_dict = dict()
-    test_data_loader_dict = dict()
-    train_data_num_dict = dict()
-    train_dataset_dict = dict()
-
-    # train_dataloader_global, train_dataset_global = create_dataloader(
-    #     train_path,
-    #     imgsz,
-    #     batch_size,
-    #     gs,
-    #     args,
-    #     hyp=hyp,
-    #     rect=True,
-    #     augment=True,
-    #     workers=args.worker_num,
-    # )
-    # train_data_num = train_dataset_global.data_size
-
-    # test_dataloader_global = create_dataloader(
-    #     test_path,
-    #     imgsz_test,
-    #     total_batch_size,
-    #     gs,
-    #     args,  # testloader
-    #     hyp=hyp,
-    #     rect=True,
-    #     pad=0.5,
-    #     workers=args.worker_num,
-    # )[0]
-    
-    test_dataloader_global = create_dataloader(
-        test_path,
-        imgsz_test,
-        total_batch_size,
-        gs,
-        args,
-        hyp=hyp,
-        rect=True,
-        pad=0.5,
-        workers=args.worker_num,
-    )[0]
-
-    test_data_num = test_dataloader_global.dataset.data_size
-
-    train_data_num = 0
-    # test_data_num = 0
-    train_dataloader_global = None
-    # test_dataloader_global = None
-
-    if args.process_id == 0:  # server
-        pass
-    else:
-        client_idx = int(args.process_id) - 1
-
-        logging.info(
-            f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[client_idx]}"
-        )
-        dataloader, dataset = create_dataloader(
-            train_path,
-            imgsz,
-            batch_size,
-            gs,
-            args,
-            hyp=hyp,
-            rect=True,
-            augment=True,
-            net_dataidx_map=net_dataidx_map[client_idx],
-            workers=args.worker_num,
-        )
-        testloader = create_dataloader(
-            test_path,
-            imgsz_test,
-            total_batch_size,
-            gs,
-            args,  # testloader
-            hyp=hyp,
-            rect=True,
-            rank=-1,
-            pad=0.5,
-            net_dataidx_map=net_dataidx_map_test[0],
-            workers=args.worker_num,
-        )[0]
-
-        train_dataset_dict[client_idx] = dataset
-        train_data_num_dict[client_idx] = len(dataset)
-        train_data_loader_dict[client_idx] = dataloader
-        test_data_loader_dict[client_idx] = testloader
-    
-    
-        # # FIXME: 
-        # test_data_loader_dict[client_idx] = test_dataloader_global
-        
-        # client_list.append(
-        #     Client(i, train_data_loader_dict[i], len(dataset), opt, device, model, tb_writer=tb_writer,
-        #            hyp=hyp, wandb=wandb))
-        #
-    args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
-    
-    # new_path                    = args.new_train_dir
-    # net_dataidx_map_new_data    = partition_data(new_path, partition=partition, n_nets=1)
-    # new_dataloader_global       = create_dataloader(
-    #                                     new_path,
-    #                                     imgsz_test,
-    #                                     total_batch_size,
-    #                                     gs,
-    #                                     args,  # testloader
-    #                                     hyp=hyp,
-    #                                     rect=True,
-    #                                     rank=-1,
-    #                                     pad=0.5,
-    #                                     net_dataidx_map=net_dataidx_map_new_data[0],
-    #                                     workers=args.worker_num,
-    #                               )[0]
-    
-    
-    # FIXME: Testing
+    # Test Dataset
     test_dataloader_global = create_dataloader(
                                         test_path,
                                         imgsz_test,
@@ -992,7 +874,44 @@ def load_partition_data_coco(args, hyp, model):
                                   )[0]
          
     test_data_num = test_dataloader_global.dataset.data_size  
-        
+    
+    train_data_loader_dict = dict()
+    test_data_loader_dict = dict()
+    train_data_num_dict = dict()
+    train_dataset_dict = dict()
+
+    train_data_num = 0
+    train_dataloader_global = None
+
+    if args.process_id == 0:  # server
+        pass
+    else:
+        client_idx = int(args.process_id) - 1
+
+        logging.info(
+            f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[client_idx]}"
+        )
+        # Train Dataloader
+        dataloader, dataset = create_dataloader(
+            train_path,
+            imgsz,
+            batch_size,
+            gs,
+            args,
+            hyp=hyp,
+            rect=True,
+            augment=True,
+            net_dataidx_map=net_dataidx_map[client_idx],
+            workers=args.worker_num,
+        )
+        train_dataset_dict[client_idx] = dataset
+        train_data_num_dict[client_idx] = len(dataset)
+        train_data_loader_dict[client_idx] = dataloader
+
+        test_data_loader_dict[client_idx] = test_dataloader_global
+    
+    args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
+    
     return (
         train_data_num,
         test_data_num,
