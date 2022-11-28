@@ -26,19 +26,6 @@ class YOLOAggregator(ServerAggregator):
     def set_model_params(self, model_parameters):
         logging.info("set_model_params")
         self.model.load_state_dict(model_parameters)
-        #self._test(self, self.test_data, self.device)
-        #try:
-        # aggr_model_path = (
-        #             self.args.save_dir
-        #             / "weights"
-        #             / f"model_aggr_{self.args.comm_round}.pt"
-        #         )
-        # torch.save(
-        #     self.model.state_dict(),
-        #     aggr_model_path,
-        #     )
-        # #except:
-        # logging.info(f"\nOOOOOOOOOOOOOOOOOOOO| Aggregator saves aggregated weights {self.args.comm_round}|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n")
     def test(self, test_data, device, args):
         #self._test(test_data=test_data, device=device)
         self._val(test_data, device, args)

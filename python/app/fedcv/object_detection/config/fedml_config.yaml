@@ -4,7 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  name: "Exp_bdd45K" # yolo
+  name: "Exp_bdd45K_50r_30e" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
 
@@ -13,20 +13,20 @@ environment_args:
 
 
 data_args:
-  dataset: "coco"
+  dataset: "bdd"
   data_cache_dir: ./fedcv_data
   partition_method: "homo"
   partition_alpha: 0.5
-  data_conf: "./data/coco128.yaml" # yolo
+  data_conf: "./data/bdd.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
 model_args:
   model: "yolov5" # "yolov5"
-  class_num: 80 #80
+  class_num: 13 #80
   yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
-  weights: 'none' #"/home/gpuadmin/Project/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best.pt" #"none" # "best.pt" # yolo
+  weights: ./runs/train/Exp_bdd45K_50r_30e/weights/aggr_model_49.pt #./runs/train/Exp_bdd45K_30r_40e/weights/aggr_model_29.pt #"./runs/train/Exp_bdd20K/weights/aggr_model_99.pt"
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS
@@ -35,25 +35,25 @@ model_args:
 train_args:
   federated_optimizer: "FedAvg"
   client_id_list:
-  client_num_in_total: 2
-  client_num_per_round: 2
-  comm_round: 20
-  epochs: 1
-  batch_size: 1
+  client_num_in_total: 4
+  client_num_per_round: 4
+  comm_round: 50
+  epochs: 30
+  batch_size: 128
   client_optimizer: sgd
   lr: 0.01
   weight_decay: 0.0005
-  checkpoint_interval: 1
+  checkpoint_interval: 30
   server_checkpoint_interval: 1
 
 validation_args:
-  frequency_of_the_test: 1
+  frequency_of_the_test: 5
 
 device_args:
-  worker_num: 2
+  worker_num: 4
   using_gpu: true
   gpu_mapping_file: ./config/gpu_mapping_new.yaml
-  gpu_mapping_key: mapping_config2_1
+  gpu_mapping_key: mapping_config4_1
   gpu_ids: [0,1,2,3,4,5,6,7]
 
 comm_args:
@@ -91,4 +91,4 @@ new_data_args:
   iou_thres: 0.6
   psuedo_gen_on_clients: []
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
-  run_name: "Odil"
+  run_name: "Odil_BDD60K_rt_50r30e"
