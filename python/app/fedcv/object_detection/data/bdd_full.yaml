@@ -6,18 +6,11 @@
 
 
 path: ../../
-<<<<<<< HEAD
-#train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
-#val: ../../../../BDD/val_bdd.txt
-train: ../../../../BDD/train_60K.txt  #hackathon_train.txt   #train_5K.txt
-val: ../../../../BDD/val_7K.txt
-=======
-train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
-val: ../../../../BDD/val_bdd.txt
+train: ../../../../BDD_complete/train_list.txt  #hackathon_train.txt   #train_5K.txt
+val: ../../../../BDD_complete/val_list.txt
 # train: ../../../../BDD/train_45K.txt  #hackathon_train.txt   #train_5K.txt
 # val: ../../../../BDD/val_5K.txt
->>>>>>> 792ad32b59b320ebd8f959f3390c6b60571f2f9d
-test: ../../../../BDD/test_bdd.txt
+test: ../../../../BDD_complete/test_list.txt
 
 
 nc: 13

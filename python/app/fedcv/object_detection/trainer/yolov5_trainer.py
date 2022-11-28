@@ -1,6 +1,7 @@
 import copy
 import logging
 import math
+import random
 import time
 import os
 import datetime
@@ -59,14 +60,16 @@ if use_shoaib_code:
         
         # -------------------------------- Shoaib Code --------------------------------------- #
         args.curr_step=0
-        if args.use_new_data and (args.round_idx > args.new_data_min_epoch)  and (args.rank in args.psuedo_gen_on_clients): 
+        args.old_train_data = train_data
+        if args.use_new_data and (args.round_idx > args.new_data_min_rounds)  and (args.rank in args.psuedo_generate_clients) or (args.rank in args.psuedo_recovery_on_clients): 
             try:
                 args.org_data = train_data.dataset.img_files
                 args.new_data = check_dataset(args.new_data_conf)['train']
                 
-                if args.use_new_data_pseudos:# TODO: Should we use pseudo labels or GT ?
+                # TODO: Should we use pseudo labels or GT ?
+                if args.use_new_data_pseudos and ((args.rank in args.psuedo_generate_clients) or (args.rank in args.psuedo_recovery_on_clients)):
                     
-                    if not args.client_map50_all[args.client_id]>args.min_map_for_pseudo_generation:
+                    if (args.client_map50_all[args.client_id]<args.min_map_for_pseudo_generation and args.round_idx>0)or(args.round_idx==0 and args.weights=="none"):
                         _log_it(args,f"mAP too low. More training required before generating pseudo labels.")
                         return train_data
                     
@@ -80,12 +83,12 @@ if use_shoaib_code:
                         
                         # Load new dataset equal to args.new_data_num_images from args.new_data
                         _log_it(args,f"Loading {args.new_data_num_images} images from new dataset at [{args.new_data}]")
-                        new_dataloader = get_new_data(args.new_data,args)
+                        new_dataloader = get_new_data(args.new_data,args,shuffle=False)
                         
                         
                             
                         # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
-                        if not args.use_new_data_recover:
+                        if (args.use_new_data_pseudos and (args.rank in args.psuedo_generate_clients)):
                             # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
                             _f =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
                                                     model           =   model,
@@ -103,13 +106,14 @@ if use_shoaib_code:
                                 # Merge un-recovered pseudo labels of new data with original data
                                 # print(args.pseudo_label_path)
                                 new_train_path = args.pseudo_label_path
+                                data_type="pseudo labels"
 
 
 
 
 
                         # ----------------- Generate Pseudo Labels and perform missing box recovery --------------------
-                        if args.use_new_data_recover: #TODO: Should we apply recovery  on the generated pseudo labels 
+                        if args.use_new_data_recover and (args.rank in args.psuedo_recovery_on_clients): #TODO: Should we apply recovery  on the generated pseudo labels 
                             
 
                             # # Generate HIGH Confidence Pseudo Labels for new dataset
@@ -143,23 +147,28 @@ if use_shoaib_code:
                         
                             # Merge recovered pseudos of new data with original data
                             new_train_path = args.new_pseudos_recovered
+                            data_type="recovered pseudo labels"
 
                         
 
 
                 else:# Don't use pseudo labels
+                    if (args.rank in args.psuedo_generate_clients) and (args.rank in args.psuedo_generate_clients):
+                        _log_it(args,f"Client not in the list to generate pseudo labels or recover them.")
+                        
                     _log_it(args,f"Removing old label files if present at {args.save_dir/'labels'}")
                     # Use ground truth data as new training data
                     new_train_path = get_X_GTs(args)
                     _log_it(args,f"Reading {args.new_data_num_images} GT for new dataset at {args.new_data} and save at {new_train_path}")
+                    data_type="ground truth"
                 
                 #merge
                 # train data = train data + pseudo labels    
-                args.mixed_train_data_path, numimgs = merge_training_lists(args, org_files = args.org_data, new_train_path = new_train_path)        
+                mixed_train_data_path, numimgs = merge_training_lists(args, org_files = args.org_data, new_train_path = new_train_path)        
 
-                _log_it(args,f"Creating the dataloader using original and new training data from {new_train_path}.")
+                _log_it(args,f"Creating the dataloader using original data (ground truth) and new training data ({data_type}) from {new_train_path}.")
                 
-                train_data = get_new_data(args.mixed_train_data_path,args,numimgs=numimgs)
+                train_data = get_new_data(mixed_train_data_path,args,numimgs=numimgs)
             
                 
             except Exception as e:
@@ -167,34 +176,49 @@ if use_shoaib_code:
         else:
             _log_it(args,f"Continue with original data only.")
         
+        
+        
+        args.new_train_data = train_data
         return train_data   
             
     def _log_it(args,msg):
         args.curr_step+=1
-        LOGGER.info("\n\t"                                                                +\
-                    colorstr( "bright_green"  , "bold" , f"Step {args.curr_step}: "      )+\
-                    colorstr( "bright_blue"   , "bold" , f"Round {args.round_idx}: "     )+\
-                    colorstr( "bright_cyan"   , "bold" , f"Client {args.client_id}: "    )+\
-                    colorstr( args.color_str  , "bold" , str(msg)                        )+\
-                    "\n")
+        msg =   "\n\t"                                                                +\
+                colorstr( "bright_green"  , "bold" , f"Step {args.curr_step}: "      )+\
+                colorstr( "bright_blue"   , "bold" , f"Round {args.round_idx}: "     )+\
+                colorstr( "bright_cyan"   , "bold" , f"Client {args.client_id}\n\t"  )+\
+                colorstr( args.color_str  , "bold" , str(msg)                        )+\
+                "\n"
+        LOGGER.info(msg)
+        # args.logging.info(msg)
         
     def get_X_GTs(args):
         import random
-        _f = open(args.tmp_gt_files, 'w')
+        tmp_gt_files = args.tmp_gt_files.split('.')[0]+f"_client{args.client_id}.txt"
+        _f = open(tmp_gt_files, 'w')
         [_f.write(x) for x in random.sample(population=open(args.new_data,'r').readlines(), k=args.new_data_num_images)]
         _f.close()
-        return args.tmp_gt_files
+        return tmp_gt_files
         
-    def partition_data(data_path,total_num=[]):
+    def partition_data(data_path,total_num=[],shuffle=True):
         if os.path.isfile(data_path):
             with open(data_path) as f:
-                data = f.readlines()
+                data = sorted(f.readlines())
             n_data = len(data)
         else:
             n_data = len(os.listdir(data_path))
         if total_num==[]:
             total_num = n_data
-        idxs = np.random.permutation(total_num)
+        if shuffle:
+            idxs = np.random.permutation(total_num)
+        else:
+            idxs    = np.random.permutation(total_num)
+            _start  = idxs[np.random.permutation(total_num)[0]]
+            _idxs   = [] 
+            for i in range(_start,_start+total_num):
+                _idxs.append(i)
+            idxs    = np.array(_idxs)
+            print(f"\tTaking indices from {_start} to {_start+total_num}")
         batch_idxs = np.array_split(idxs, 1)
         net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
         return net_dataidx_map
@@ -235,9 +259,9 @@ if use_shoaib_code:
                 if _file.endswith('.jpg'):
                     new_files.append(os.path.join(os.path.abspath(new_train_path),_file))
         
-        _log_it(args,f"Merging {len(org_files)} original training data {args.data_conf} with {len(new_files)} recovered pseudo labels of new data {new_train_path}.")
-        
-        with open(args.tmp_merge_file , 'w') as outfile:
+        _log_it(args,f"Merging {len(org_files)} images from {args.data_conf} with {len(new_files)} images from {new_train_path}.")
+        tmp_merge_file = args.tmp_merge_file.split('.')[0]+f"_client{args.client_id}.txt"
+        with open(tmp_merge_file , 'w') as outfile:
             for line in org_files:
                 outfile.write(line+'\n')
             for line in new_files:
@@ -246,9 +270,9 @@ if use_shoaib_code:
                 # outfile.write(os.path.abspath(outtext))
                 
         numimgs = len(org_files)+len(new_files)
-        return args.tmp_merge_file, numimgs
+        return tmp_merge_file, numimgs
 
-    def get_new_data(data_path,args,numimgs=0):
+    def get_new_data(data_path,args,numimgs=0,shuffle=True):
         # data_path            = args.new_data
         imgsz_test           = args.new_dataloader_args[0]
         total_batch_size     = args.new_dataloader_args[1]
@@ -259,8 +283,8 @@ if use_shoaib_code:
         rank                 = -1
         pad                  = args.new_dataloader_args[7]
         workers              = args.new_dataloader_args[8]
-        total_num = args.new_data_num_images if numimgs==0 else numimgs
-        net_dataidx_map_test = partition_data(data_path,total_num=total_num)
+        total_num            = args.new_data_num_images if numimgs==0 else numimgs
+        net_dataidx_map_test = partition_data(data_path,total_num=total_num,shuffle=shuffle)
         testloader           = create_dataloader(
                                                 data_path,
                                                 imgsz_test,
@@ -355,7 +379,7 @@ if use_shoaib_code:
             augment             = False
             classes             = None
             config_deepsort     = args.new_deepsort_config
-            device              = ''
+            device              = args.device.index
             dnn                 = False
             evaluate            = False
             fourcc              = 'mp4v'
@@ -389,28 +413,36 @@ if use_shoaib_code:
             source = str(source)
             output = source
             # txt_path = str(Path(opt.output)) + '/' + os.path.basename(path)[:-4]+'.txt'
+        try:
+            # Recover in Forward
+            opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-FW'
+            opt_recovery.reverse= False
+            with torch.no_grad():
+                _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output}.")
+                recover.detect(opt_recovery,args)     
+        except Exception as e:    
+            print(f"Error in FW Recovery - {e}")
+
+        try:
+            # Recover in Backward
+            opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-BW'
+            opt_recovery.reverse= True
+            with torch.no_grad():
+                _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output}.")
+                recover.detect(opt_recovery,args)
+        except Exception as e:    
+            print(f"Error in BW Recovery - {e}")
         
-        # Recover in Forward
-        opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-FW'
-        opt_recovery.reverse= False
-        with torch.no_grad():
-            _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output}.")
-            recover.detect(opt_recovery,args)         
-
-        # Recover in Backward
-        opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-BW'
-        opt_recovery.reverse= True
-        with torch.no_grad():
-            _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output}.")
-            recover.detect(opt_recovery,args)
-
-        # Merge
-        class opt_merge(object):
-            forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
-            backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
-            merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
-        _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.")
-        merge(opt_merge)
+        try:
+            # Merge
+            class opt_merge(object):
+                forward     = os.path.split( opt_recovery.source )[0]+'/Recover-FW'
+                backward    = os.path.split( opt_recovery.source )[0]+'/Recover-BW'
+                merged      = os.path.split( opt_recovery.source )[0]+'/Recover-Merged'
+            _log_it(args,f"Merge the results from Yolo's pseudo labels with the recovered labels from forward and backward recovery.")
+            merge(opt_merge)
+        except Exception as e:    
+            print(f"Error in Merging - {e}")
         
         _log_it(args,f"Move the images to the Recover-Merged directory for next training.")
         move_images(args,opt_merge.merged)
@@ -528,9 +560,15 @@ class YOLOv5Trainer(ClientTrainer):
         model.train()
 
         compute_loss = ComputeLoss(model)
-
-        if use_shoaib_code: 
+        
+        # ============ Shoaib's part ============
+        args.client_data_size_org = len(train_data.dataset.labels)
+        args.logging = logging
+        if use_shoaib_code: # TODO: 
             train_data = use_new_data(args,model,compute_loss,train_data)
+            args.client_data_size_mod = len(train_data.dataset.labels)
+        # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
+        # =======================================
         
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
@@ -541,7 +579,8 @@ class YOLOv5Trainer(ClientTrainer):
             batch_loss = []
             logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
             
-            LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {len(train_data.dataset.labels)} images.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod} images. Original data is {args.client_data_size_org} for client {args.client_id}.\n"))
+            
             for (batch_idx, batch) in enumerate(train_data):
                 imgs, targets, paths, _ = batch
                 imgs = imgs.to(device, non_blocking=True).float() / 256.0 - 0.5
@@ -632,34 +671,35 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-            if (epoch + 1) % self.args.frequency_of_the_test == 0:
-                logging.info("Start val on Trainer {}".format(host_id))
-                #self.val(test_data, device, args)
-                data_dict = None
-                save_dir = self.args.save_dir
-                # save_dir = Path(args.opt["save_dir"])
-                # weights = args.opt["weights"]
-                # loggers = Loggers(save_dir, weights, args.opt, args.hyp, LOGGER)
-                #data_dict = loggers.remote_dataset
-                data_dict = data_dict or check_dataset(args.data_conf)
-                # data_dict = data_dict or check_dataset(args.opt["data"])
-                # logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
-                # half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
-                half, single_cls, plots, callbacks = False, False, False, None
-                self._val(data=data_dict,
-                          batch_size=args.batch_size,
-                          imgsz=args.img_size[0],
-                          half=half,
-                          model=model,
-                          single_cls=single_cls,
-                          dataloader=test_data,
-                          save_dir=save_dir,
-                          plots=plots,
-                          compute_loss=compute_loss, 
-                          args = args
-                          )
-                
-                
+            # if (epoch + 1) % self.args.frequency_of_the_test == 0:
+            # if (epoch + 1) % self.args.epochs == 0:
+        logging.info("Start val on Trainer {}".format(host_id))
+        #self.val(test_data, device, args)
+        data_dict = None
+        save_dir = self.args.save_dir
+        # save_dir = Path(args.opt["save_dir"])
+        # weights = args.opt["weights"]
+        # loggers = Loggers(save_dir, weights, args.opt, args.hyp, LOGGER)
+        #data_dict = loggers.remote_dataset
+        data_dict = data_dict or check_dataset(args.data_conf)
+        # data_dict = data_dict or check_dataset(args.opt["data"])
+        # logging.info(f"Training path: {data_dict['train']}' and Validation path: {data_dict['val']}")
+        # half, single_cls, plots, callbacks = False, args.opt['single_cls'], False, None
+        half, single_cls, plots, callbacks = False, False, False, None
+        self._val(data=data_dict,
+                    batch_size=args.batch_size,
+                    imgsz=args.img_size[0],
+                    half=half,
+                    model=model,
+                    single_cls=single_cls,
+                    dataloader=test_data,
+                    save_dir=save_dir,
+                    plots=plots,
+                    compute_loss=compute_loss, 
+                    args = args
+                    )
+        
+        
                 
 
         logging.info("End training on Trainer {}".format(host_id))
@@ -735,6 +775,12 @@ class YOLOv5Trainer(ClientTrainer):
                     #f"client_{host_id}_test_box_loss": np.float(results[4]),
                     #f"client_{host_id}_test_obj_loss": np.float(results[5]),
                     #f"client_{host_id}_test_cls_loss": np.float(results[6]),
+                    
+                    f"client_{host_id}_training_data_org": args.client_data_size_org,
+                    f"client_{host_id}_training_data_mod": args.client_data_size_mod,
+                    f"training_data_org": args.client_data_size_org,
+                    f"training_data_mod": args.client_data_size_mod,
+                    
                     f"client_{host_id}_round_idx": args.round_idx,
                     f"Round_No": args.round_idx,
                     
