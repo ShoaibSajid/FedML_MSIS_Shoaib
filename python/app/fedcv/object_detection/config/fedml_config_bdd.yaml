@@ -4,7 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  name: "org_bddGT_bddPD_bddVal_C1GT_C2GT_0.01LR" # yolo
+  name: "org_bddGT_bddPD_bddVal_C1GT_C2GT_0.001LR" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
 
@@ -81,7 +81,7 @@ new_data_args:
   new_data_min_rounds: -1
   min_map_for_pseudo_generation: 0.2
 
-  use_new_data: True # False to use only original data from server
+  use_new_data: False # False to use only original data from server
   use_new_data_pseudos: True # False to disable pseudo label generation
   use_new_data_recover: True # False to disable pseudo label recovery
 
@@ -96,4 +96,4 @@ new_data_args:
   psuedo_recovery_on_clients: [2,4,6,8]
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
 
-  run_name: "Org_BDDTrain_BDDVal_New5kBDD_CGT_C2GT___0_01LR"
+  run_name: "Org_BDDTrain_BDDVal_New5kBDD_CGT_C2GT___0_001LR"
