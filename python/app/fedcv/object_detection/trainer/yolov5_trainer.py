@@ -608,8 +608,8 @@ class YOLOv5Trainer(ClientTrainer):
         args.logging = logging
         if use_shoaib_code: # TODO: 
             train_data, test_data = use_new_data(args,model,compute_loss,train_data, test_data)
-            args.client_data_size_mod_train = len(train_data.dataset.labels)
-            args.client_data_size_mod_test = len(test_data.dataset.labels)
+        args.client_data_size_mod_train = len(train_data.dataset.labels)
+        args.client_data_size_mod_test = len(test_data.dataset.labels)
         # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
         
         
@@ -619,7 +619,7 @@ class YOLOv5Trainer(ClientTrainer):
         # %% ======================= Validation Part - Before Training ====================================
 
         if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images before training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
             
         logging.info("Start val on Trainer before training {}".format(host_id))
         save_dir = self.args.save_dir
@@ -707,18 +707,18 @@ class YOLOv5Trainer(ClientTrainer):
             logging.info("#" * 200)
             
             MLOpsProfilerEvent.log_to_wandb({
-                                            f"client_{host_id}_round_idx":  self.round_idx,
-                                            f"client_{host_id}_box_loss":   np.float(mloss[0]),
-                                            f"client_{host_id}_obj_loss":   np.float(mloss[1]),
-                                            f"client_{host_id}_cls_loss":   np.float(mloss[2]),
-                                            f"client_{host_id}_total_loss": np.float(mloss.sum()),
-                                            f"round_idx":   self.round_idx,
-                                            f"box_loss":    np.float(mloss[0]),
-                                            f"obj_loss":    np.float(mloss[1]),
-                                            f"cls_loss":    np.float(mloss[2]),
-                                            f"total_loss":  np.float(mloss.sum()),
-                                            f"Round_No":    args.round_idx,
-                                            f"Epoch_No":    epoch,
+                                            f"client_{host_id}_round_idx":          self.round_idx,
+                                            f"client_{host_id}_train_box_loss":     np.float(mloss[0]),
+                                            f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
+                                            f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
+                                            f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
+                                            f"round_idx":           self.round_idx,
+                                            f"train_box_loss":      np.float(mloss[0]),
+                                            f"train_obj_loss":      np.float(mloss[1]),
+                                            f"train_cls_loss":      np.float(mloss[2]),
+                                            f"train_total_loss":    np.float(mloss.sum()),
+                                            f"Round_No":            args.round_idx,
+                                            f"Epoch_No":            epoch,
                                             })
 
 
@@ -759,7 +759,7 @@ class YOLOv5Trainer(ClientTrainer):
         # %% =================== Validation Part - After Training ====================================
 
         if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images after training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
             
         # if (epoch + 1) % self.args.frequency_of_the_test == 0:
         # if (epoch + 1) % self.args.epochs == 0:
@@ -853,10 +853,10 @@ class YOLOv5Trainer(ClientTrainer):
                     f"{phase}client_{host_id}_test_obj_loss":      np.float(results[5]),
                     f"{phase}client_{host_id}_test_cls_loss":      np.float(results[6]),
                     
-                    f"{phase}client_{host_id}_training_data_org":  args.client_data_size_org_train,
-                    f"{phase}client_{host_id}_training_data_mod":  args.client_data_size_mod_train,
-                    f"{phase}client_{host_id}_testing_data_org":   args.client_data_size_org_test,
-                    f"{phase}client_{host_id}_testing_data_mod":   args.client_data_size_mod_test,
+                    # f"{phase}client_{host_id}_training_data_org":  args.client_data_size_org_train,
+                    # f"{phase}client_{host_id}_training_data_mod":  args.client_data_size_mod_train,
+                    # f"{phase}client_{host_id}_testing_data_org":   args.client_data_size_org_test,
+                    # f"{phase}client_{host_id}_testing_data_mod":   args.client_data_size_mod_test,
                     
                     
                     f"{phase}mean_precision":      np.float(results[0]),
@@ -868,11 +868,10 @@ class YOLOv5Trainer(ClientTrainer):
                     f"{phase}test_obj_loss":       np.float(results[5]),
                     f"{phase}test_cls_loss":       np.float(results[6]),
  
-                    f"{phase}training_data_org":   args.client_data_size_org_train,
-                    f"{phase}training_data_mod":   args.client_data_size_mod_train,
-                    f"{phase}testing_data_org":    args.client_data_size_org_test,
-                    f"{phase}testing_data_mod":    args.client_data_size_mod_test,
-                    
+                    # f"{phase}training_data_org":   args.client_data_size_org_train,
+                    # f"{phase}training_data_mod":   args.client_data_size_mod_train,
+                    # f"{phase}testing_data_org":    args.client_data_size_org_test,
+                    # f"{phase}testing_data_mod":    args.client_data_size_mod_test,
                     
                     f"{phase}client_{host_id}_round_idx": args.round_idx,
                     f"{phase}Round_No": args.round_idx,

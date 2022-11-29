@@ -208,6 +208,8 @@ class ComputeLoss:
         ai = (
             torch.arange(na, device=self.device).float().view(na, 1).repeat(1, nt)
         )  # same as .repeat_interleave(nt)
+        target = targets.to(self.device)
+        ai = ai.to(self.device)
         targets = torch.cat(
             (targets.repeat(na, 1, 1), ai[..., None]), 2
         )  # append anchor indices
