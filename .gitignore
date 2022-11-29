@@ -10,9 +10,10 @@ python/app/fedcv/object_detection/runs
 python/app/fedcv/object_detection/log
 python/app/fedcv/object_detection/wandb
 
+/home/shoaib/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/config/*
 /home/shoaib/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/Yolov5_DeepSORT_PseudoLabels/temp_data_for_filtering
-python/app/fedcv/object_detection/results_saved/
 
+python/app/fedcv/object_detection/results_saved/
 *.yaml
 *.cache
 

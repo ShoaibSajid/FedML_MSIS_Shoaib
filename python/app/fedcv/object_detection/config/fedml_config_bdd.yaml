@@ -77,7 +77,8 @@ model_args:
 new_data_args:
   new_data: "bdd"
   new_data_conf: "./data/bdd_full.yaml" # yolo
-  new_data_num_images: 5000
+  new_data_num_images_train: 5000
+  new_data_num_images_test: 5000
   new_data_min_rounds: -1
   min_map_for_pseudo_generation: 0.2
 
