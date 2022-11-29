@@ -604,12 +604,12 @@ class YOLOv5Trainer(ClientTrainer):
         
         # %% ======================== Shoaib's part =======================================
         args.client_data_size_org_train = len(train_data.dataset.labels)
-        args.client_data_size_org_test = len(train_data.dataset.labels)
+        args.client_data_size_org_test = len(test_data.dataset.labels)
         args.logging = logging
         if use_shoaib_code: # TODO: 
-            train_data = use_new_data(args,model,compute_loss,train_data, test_data)
+            train_data, test_data = use_new_data(args,model,compute_loss,train_data, test_data)
             args.client_data_size_mod_train = len(train_data.dataset.labels)
-            args.client_data_size_mod_test = len(train_data.dataset.labels)
+            args.client_data_size_mod_test = len(test_data.dataset.labels)
         # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
         
         
@@ -619,7 +619,7 @@ class YOLOv5Trainer(ClientTrainer):
         # %% ======================= Validation Part - Before Training ====================================
 
         if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod} images. Original testing data is {args.client_data_size_org} for client {args.client_id}.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
             
         logging.info("Start val on Trainer before training {}".format(host_id))
         save_dir = self.args.save_dir
@@ -656,7 +656,7 @@ class YOLOv5Trainer(ClientTrainer):
             logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
             
             if use_shoaib_code: 
-                LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod} images. Original training data is {args.client_data_size_org} for client {args.client_id}.\n"))
+                LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
             
             for (batch_idx, batch) in enumerate(train_data):
                 # ============= Read images and move to GPU ===================
@@ -759,7 +759,7 @@ class YOLOv5Trainer(ClientTrainer):
         # %% =================== Validation Part - After Training ====================================
 
         if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod} images. Original testing data is {args.client_data_size_org} for client {args.client_id}.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
             
         # if (epoch + 1) % self.args.frequency_of_the_test == 0:
         # if (epoch + 1) % self.args.epochs == 0:
@@ -777,7 +777,7 @@ class YOLOv5Trainer(ClientTrainer):
                     save_dir=save_dir,
                     plots=False,
                     compute_loss=compute_loss, 
-                    args = args
+                    args = args,
                     phase= "After_Training_"
                     )
 
