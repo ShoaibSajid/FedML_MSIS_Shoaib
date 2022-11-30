@@ -67,7 +67,7 @@ class YOLOAggregator(ServerAggregator):
                     f"Server_{host_id}_test_box_loss": np.float(results[4]),
                     f"Server_{host_id}_test_obj_loss": np.float(results[5]),
                     f"Server_{host_id}_test_cls_loss": np.float(results[6]),
-                    f"Server_{host_id}_round_idx": args.round_idx,
+                    
                     f"mean_precision": np.float(results[0]),
                     f"mean_recall": np.float(results[1]),
                     f"map@50_all_classes": np.float(results[2]),
@@ -75,6 +75,24 @@ class YOLOAggregator(ServerAggregator):
                     f"test_box_loss": np.float(results[4]),
                     f"test_obj_loss": np.float(results[5]),
                     f"test_cls_loss": np.float(results[6]),
+                    
+                    f"Before_Training_mean_precision": np.float(results[0]),
+                    f"Before_Training_mean_recall": np.float(results[1]),
+                    f"Before_Training_map@50_all_classes": np.float(results[2]),
+                    f"Before_Training_map_all_classes": np.float(results[3]),
+                    f"Before_Training_test_box_loss": np.float(results[4]),
+                    f"Before_Training_test_obj_loss": np.float(results[5]),
+                    f"Before_Training_test_cls_loss": np.float(results[6]),
+                    
+                    f"After_Training_mean_precision": np.float(results[0]),
+                    f"After_Training_mean_recall": np.float(results[1]),
+                    f"After_Training_map@50_all_classes": np.float(results[2]),
+                    f"After_Training_map_all_classes": np.float(results[3]),
+                    f"After_Training_test_box_loss": np.float(results[4]),
+                    f"After_Training_test_obj_loss": np.float(results[5]),
+                    f"After_Training_test_cls_loss": np.float(results[6]),
+                    
+                    f"Server_{host_id}_round_idx": args.round_idx,
                     f"Round_No": args.round_idx,
                     
                 }
