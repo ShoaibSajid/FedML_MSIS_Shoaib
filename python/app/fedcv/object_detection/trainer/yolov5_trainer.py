@@ -847,14 +847,14 @@ class YOLOv5Trainer(ClientTrainer):
         
         MLOpsProfilerEvent.log_to_wandb(
                 {
-                    f"{phase}client_{host_id}_mean_precision":     np.float(results[0]),
-                    f"{phase}client_{host_id}_mean_recall":        np.float(results[1]),
-                    f"{phase}client_{host_id}_map@50":             np.float(results[2]),
-                    f"{phase}client_{host_id}_map":                np.float(results[3]),
-                        
-                    f"{phase}client_{host_id}_test_box_loss":      np.float(results[4]),
-                    f"{phase}client_{host_id}_test_obj_loss":      np.float(results[5]),
-                    f"{phase}client_{host_id}_test_cls_loss":      np.float(results[6]),
+                    f"client_{host_id}_mean_precision":     np.float(results[0]),
+                    f"client_{host_id}_mean_recall":        np.float(results[1]),
+                    f"client_{host_id}_map@50":             np.float(results[2]),
+                    f"client_{host_id}_map":                np.float(results[3]),
+                      
+                    f"client_{host_id}_test_box_loss":      np.float(results[4]),
+                    f"client_{host_id}_test_obj_loss":      np.float(results[5]),
+                    f"client_{host_id}_test_cls_loss":      np.float(results[6]),
                     
                     # f"{phase}client_{host_id}_training_data_org":  args.client_data_size_org_train,
                     # f"{phase}client_{host_id}_training_data_mod":  args.client_data_size_mod_train,
