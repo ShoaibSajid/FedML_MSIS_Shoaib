@@ -528,6 +528,7 @@ class YOLOv5Trainer(ClientTrainer):
         args.client_map_all   = dict()
         args.client_map50_all[args.rank]=0
         args.client_map_all[args.rank]=0
+        self.logging = logging.getLogger("client_logger")
 
     def get_model_params(self):
         return self.model.cpu().state_dict()
@@ -596,9 +597,9 @@ class YOLOv5Trainer(ClientTrainer):
 
 
         # %% =============== Model Loss and Move model to device ======================
-        compute_loss = ComputeLoss(model)
         model.to(device)
         model.train()
+        compute_loss = ComputeLoss(model)
         
         
         
@@ -619,7 +620,7 @@ class YOLOv5Trainer(ClientTrainer):
         # %% ======================= Validation Part - Before Training ====================================
 
         if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images before training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
+            LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tTesting on {args.client_data_size_mod_test} images before training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
             
         logging.info("Start val on Trainer before training {}".format(host_id))
         save_dir = self.args.save_dir
@@ -648,7 +649,6 @@ class YOLOv5Trainer(ClientTrainer):
         # =================================================================================
         epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
-        logging.info("\tEpoch gpu_mem box obj cls total targets img_size time")
         for epoch in range(args.epochs):
             model.train()
             t = time.time()
@@ -658,6 +658,8 @@ class YOLOv5Trainer(ClientTrainer):
             if use_shoaib_code: 
                 LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
             
+            logging.info(("%10s" * 8) % ("Epoch", "batch", "gpu_mem", "box", "obj", "cls", "targets", "img_size"))
+            total_batches = train_data.batch_sampler.sampler.sampler.data_source.batch_shapes.shape[0]
             for (batch_idx, batch) in enumerate(train_data):
                 # ============= Read images and move to GPU ===================
                 imgs, targets, paths, _ = batch
@@ -686,10 +688,11 @@ class YOLOv5Trainer(ClientTrainer):
                 # ====================== Calculate Losses ======================
                 mloss = (mloss * batch_idx + loss_items) / (batch_idx + 1)  # update mean losses
                 mem = "%.3gG" % (torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0)  # (GB)
-                s = ("%10s" * 2 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
-                logging.info(s)
+                s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
+                print(s)
 
             # ============= Update learning rate =============
+            logging.info(s)
             scheduler.step()
 
 
