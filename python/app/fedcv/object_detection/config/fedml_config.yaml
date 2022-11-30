@@ -4,7 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  name: "Exp_bdd45K_50r_30e" # yolo
+  name: "Exp_bdd60K_50r_30e" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
 
@@ -47,7 +47,7 @@ train_args:
   server_checkpoint_interval: 1
 
 validation_args:
-  frequency_of_the_test: 5
+  frequency_of_the_test: 1
 
 device_args:
   worker_num: 4
@@ -72,23 +72,27 @@ tracking_args:
   wandb_project: fedml
   wandb_name: fedml_torch_object_detection
 
-new_data_args:
-  new_data: "waymo"
-  new_data_conf: "./data/3class_waymo.yaml" # yolo
-  new_data_num_images: 1000
-  new_data_min_epoch: -1
 
-  use_new_data: False
-  use_new_data_pseudos: True # False
-  use_new_data_recover: True
+new_data_args:
+  new_data: "bdd"
+  new_data_conf: "./data/bdd_full.yaml" # yolo
+  new_data_num_images: 100
+  new_data_min_rounds: -1
+  min_map_for_pseudo_generation: 0.2
+
+  use_new_data: True # False to use only original data from server
+  use_new_data_pseudos: True # False to disable pseudo label generation
+  use_new_data_recover: True # False to disable pseudo label recovery
 
   tmp_merge_file: "../../../../merged_list.txt"
   tmp_gt_files: "../../../../tmp.txt"
   new_deepsort_config: "Yolov5_DeepSORT_PseudoLabels/deep_sort/configs/deep_sort.yaml"
-  conf_thresh_low: 0.1 # Low confidence threshold for pseudo labels
+  conf_thresh_low: 0.01 # Low confidence threshold for pseudo labels
   conf_thresh_high: 0.5 # High confidence threshold for pseudo labels
   conf_thres: 0.5
   iou_thres: 0.6
-  psuedo_gen_on_clients: []
+  psuedo_generate_clients: [1,3,5,7]
+  psuedo_recovery_on_clients: [2,4,6,8]
   color_str: "bright_yellow" #bright_red, bright_green, bright_blue
+
   run_name: "Odil_BDD60K_rt_50r30e"
