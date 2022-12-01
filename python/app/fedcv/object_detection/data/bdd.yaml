@@ -6,10 +6,10 @@
 
 
 path: ../../
-#train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
-#val: ../../../../BDD/val_bdd.txt
-train: ../../../../BDD/train_60K.txt  #hackathon_train.txt   #train_5K.txt
-val: ../../../../BDD/val_7K.txt
+# train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
+# val: ../../../../BDD/val_bdd.txt
+train: ../../../../BDD/train_200.txt  #hackathon_train.txt   #train_5K.txt
+val: ../../../../BDD/val_100.txt
 test: ../../../../BDD/test_bdd.txt
 
 
