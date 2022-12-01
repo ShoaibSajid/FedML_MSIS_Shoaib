@@ -273,7 +273,7 @@ if use_shoaib_code:
         if shuffle:
             idxs = np.random.permutation(total_num)
         else:
-            idxs    = np.random.permutation(total_num)
+            idxs    = np.random.permutation(n_data-total_num)
             _start  = idxs[np.random.permutation(total_num)[0]]
             _idxs   = [] 
             for i in range(_start,_start+total_num):
