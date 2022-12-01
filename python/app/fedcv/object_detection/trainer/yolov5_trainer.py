@@ -62,6 +62,9 @@ if use_shoaib_code:
         args.curr_step=0
         args.old_train_data = train_data
         args.old_test_data  = test_data
+        genTest = args.generate_validation_pseudos
+        
+        merged_test_dataloader, new_test_dataloader_gt = [], []
         
         round_above_min = args.round_idx > args.new_data_min_rounds
         clinet_in_list = args.rank in args.psuedo_generate_clients or args.rank in args.psuedo_recovery_on_clients
@@ -69,22 +72,31 @@ if use_shoaib_code:
         if args.use_new_data and round_above_min  and clinet_in_list: 
             try:
                 args.org_data_train = train_data.dataset.img_files
-                args.org_data_test = test_data.dataset.img_files
-                
                 args.new_data_train = check_dataset(args.new_data_conf)['train']
-                args.new_data_test = check_dataset(args.new_data_conf)['val']
                 
+                if genTest: 
+                    args.org_data_test = test_data.dataset.img_files
+                    args.new_data_test = check_dataset(args.new_data_conf)['val']
+                        
+                    _log_it(args,f"Loading {args.new_data_num_images_test } images from new test dataset at [{args.new_data}]")
+                    new_test_dataloader_gt  = get_new_data(args.new_data_test, args, numimgs = args.new_data_num_images_test, shuffle=False)
+                    
                 # TODO: Should we use pseudo labels or GT ?
                 if args.use_new_data_pseudos and ((args.rank in args.psuedo_generate_clients) or (args.rank in args.psuedo_recovery_on_clients)):
                     
                     if (args.client_map50_all[args.client_id]<args.min_map_for_pseudo_generation and args.round_idx>0)or(args.round_idx==0 and args.weights=="none"):
                         _log_it(args,f"mAP too low. More training required before generating pseudo labels.")
-                        return train_data, test_data
+                        return train_data, merged_test_dataloader, new_test_dataloader_gt #FIXME: Return
                     
                     else:
                         # Remove old labels
                         # if os.path.isdir(args.save_dir/'labels'):   
-                        _dir = args.save_dir/'labels'/f'Trainer_{args.client_id}--Round_{args.round_idx}'  
+                        _dir = args.save_dir/'train'/'labels'/f'Trainer_{args.client_id}--Round_{args.round_idx}'  
+                        if os.path.isdir(_dir):     
+                            _log_it(args,f"Removing old label files if present at {_dir}")
+                            shutil.rmtree(_dir)
+                            
+                        _dir = args.save_dir/'test'/'labels'/f'Trainer_{args.client_id}--Round_{args.round_idx}'  
                         if os.path.isdir(_dir):     
                             _log_it(args,f"Removing old label files if present at {_dir}")
                             shutil.rmtree(_dir)
@@ -92,16 +104,13 @@ if use_shoaib_code:
                         
                         # Load new dataset equal to args.new_data_num_images_train from args.new_data
                         _log_it(args,f"Loading {args.new_data_num_images_train} images from new train dataset at [{args.new_data}]")
-                        new_train_dataloader = get_new_data(args.new_data_train,args,shuffle=False)
-                        
-                        _log_it(args,f"Loading {args.new_data_num_images_test } images from new test  dataset at [{args.new_data}]")
-                        new_test_dataloader  = get_new_data(args.new_data_test, args,shuffle=False)
+                        new_train_dataloader = get_new_data(args.new_data_train,args, numimgs = args.new_data_num_images_train, shuffle=False)
                         
                         args.save_dir_train = args.save_dir/'train'
-                        args.save_dir_test  = args.save_dir/'test'
+                        if genTest: args.save_dir_test  = args.save_dir/'test'
                             
                         # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
-                        if (args.use_new_data_pseudos and (args.rank in args.psuedo_generate_clients)):
+                        if args.rank in args.psuedo_generate_clients:
                             # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
                             _f_train =      pseudo_labels(  data            =   check_dataset(args.new_data_conf),
                                                             model           =   model,
@@ -113,7 +122,7 @@ if use_shoaib_code:
                                                             save_dir        =   args.save_dir_train
                                                             )
                             if _f_train==[]: 
-                                return train_data   #FIXME: Return original dataloader
+                                return train_data, merged_test_dataloader, new_test_dataloader_gt   #FIXME: Return original dataloader
                             else:
                                 args.pseudo_label_path_train = os.path.split(_f_train)[0]    
                                 # Merge un-recovered pseudo labels of new data with original data
@@ -121,20 +130,22 @@ if use_shoaib_code:
                                 new_data_path_train = args.pseudo_label_path_train
 
 
-                                _f_test =   pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                                                            model           =   model,
-                                                            dataloader      =   new_test_dataloader,
-                                                            compute_loss    =   compute_loss, 
-                                                            args            =   args,
-                                                            conf_thresh     =   0.5,
-                                                            save_conf       =   False,
-                                                            save_dir        =   args.save_dir_test
-                                                            )
-                                
-                                args.pseudo_label_path_test = os.path.split(_f_test)[0]    
-                                # Merge un-recovered pseudo labels of new data with original data
-                                # print(args.pseudo_label_path)
-                                new_data_path_test = args.pseudo_label_path_test
+                                if genTest: 
+                                    _f_test =   pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                                model           =   model,
+                                                                dataloader      =   new_test_dataloader_gt,
+                                                                compute_loss    =   compute_loss, 
+                                                                args            =   args,
+                                                                conf_thresh     =   0.5,
+                                                                save_conf       =   False,
+                                                                save_dir        =   args.save_dir_test
+                                                                )
+                                    
+                                    args.pseudo_label_path_test = os.path.split(_f_test)[0]    
+                                    # Merge un-recovered pseudo labels of new data with original data
+                                    # print(args.pseudo_label_path)
+                                    new_data_path_test = args.pseudo_label_path_test
+                                    
                                 data_type="pseudo labels"
 
 
@@ -153,7 +164,7 @@ if use_shoaib_code:
                                                                     save_dir        =   args.save_dir_train
                                                                     )
                             if args.path_low_train==[]: 
-                                return train_data, test_data   #FIXME: Return original dataloader
+                                return train_data, merged_test_dataloader, new_test_dataloader_gt   #FIXME: Return original dataloader
                             # Run Forward and Backward Bounding Box Recovery
                             args.new_pseudos_recovered_train = recover_labels( args , args.path_low_train )
                             # Merge recovered pseudos of new data with original data
@@ -163,19 +174,20 @@ if use_shoaib_code:
 
                         
                             # Test Dataset
-                            # Generate Pseudo Labels for new dataset
-                            args.path_low_test =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
-                                                                    model           =   model,
-                                                                    dataloader      =   new_test_dataloader,
-                                                                    compute_loss    =   compute_loss, 
-                                                                    args            =   args,
-                                                                    conf_thresh     =   args.conf_thresh_low,
-                                                                    save_dir        =   args.save_dir_test
-                                                                    )
-                            # Run Forward and Backward Bounding Box Recovery
-                            args.new_pseudos_recovered_test = recover_labels( args , args.path_low_test )
-                            # Merge recovered pseudos of new data with original data
-                            new_data_path_test = args.new_pseudos_recovered_test
+                            if genTest: 
+                                # Generate Pseudo Labels for new dataset
+                                args.path_low_test =    pseudo_labels(  data            =   check_dataset(args.new_data_conf),
+                                                                        model           =   model,
+                                                                        dataloader      =   new_test_dataloader_gt,
+                                                                        compute_loss    =   compute_loss, 
+                                                                        args            =   args,
+                                                                        conf_thresh     =   args.conf_thresh_low,
+                                                                        save_dir        =   args.save_dir_test
+                                                                        )
+                                # Run Forward and Backward Bounding Box Recovery
+                                args.new_pseudos_recovered_test = recover_labels( args , args.path_low_test )
+                                # Merge recovered pseudos of new data with original data
+                                new_data_path_test = args.new_pseudos_recovered_test
                             data_type="recovered pseudo labels"
 
 
@@ -185,21 +197,27 @@ if use_shoaib_code:
                         _log_it(args,f"Client not in the list to generate pseudo labels or recover them.")
                         
                     _log_it(args,f"Removing old label files if present at {args.save_dir/'labels'}")
+                    
                     # Use ground truth data as new training data
-                    new_data_path, new_data_path_test = get_X_GTs(args)
+                    new_data_path_train = get_X_GTs_train(args)
                     _log_it(args,f"Reading {args.new_data_num_images_train} GT for new train dataset at {args.new_data_train} and save at {new_data_path_train}")
-                    _log_it(args,f"Reading {args.new_data_num_images_test} GT for new test dataset at {args.new_data_test} and save at {new_data_path_test}")
+                    
+                    if genTest:  
+                        new_data_path_test = get_X_GTs_test(args)
+                        _log_it(args,f"Reading {args.new_data_num_images_test} GT for new test dataset at {args.new_data_test} and save at {new_data_path_test}")
+                        
                     data_type="ground truth"
                 
                 #merge
                 # train data = train data + pseudo labels    
                 mixed_train_data_path, numimgs = merge_training_lists(args, org_files = args.org_data_train, new_data_path = new_data_path_train)        
-                mixed_test_data_path , numimgs = merge_training_lists(args, org_files = args.org_data_test , new_data_path = new_data_path_test )        
-
-                _log_it(args,f"Creating the dataloader using original data (ground truth) and new training data ({data_type}) from {new_data_path}.")
-                
+                _log_it(args,f"Creating the dataloader using original data (ground truth) and new training data ({data_type}) from {new_data_path_train}.")
                 train_data = get_new_data(mixed_train_data_path,args,numimgs=numimgs)
-                test_data  = get_new_data(mixed_test_data_path ,args,numimgs=numimgs) #FIXME:
+                
+                if genTest: 
+                    mixed_test_data_path , numimgs = merge_training_lists(args, org_files = args.org_data_test , new_data_path = new_data_path_test )        
+                    _log_it(args,f"Creating the dataloader using original data (ground truth) and new testing data ({data_type}) from {new_data_path_test}.")
+                    merged_test_dataloader  = get_new_data(mixed_test_data_path ,args,numimgs=numimgs) #FIXME:
             
                 
             except Exception as e:
@@ -207,11 +225,10 @@ if use_shoaib_code:
         else:
             _log_it(args,f"Continue with original data only.")
         
-        
-        
         args.new_train_data = train_data
-        args.new_test_data = test_data
-        return train_data, test_data
+        if genTest: args.merged_test_data = merged_test_dataloader
+        if genTest: args.new_test_data_GT = new_test_dataloader_gt
+        return train_data, merged_test_dataloader, new_test_dataloader_gt
             
     def _log_it(args,msg):
         args.curr_step+=1
@@ -224,17 +241,23 @@ if use_shoaib_code:
         LOGGER.info(msg)
         # args.logging.info(msg)
         
-    def get_X_GTs(args):
+    def get_X_GTs_train(args):
         import random
-        tmp_gt_files_train = args.tmp_gt_files.split('.')[0]+f"_train_client{args.client_id}.txt"
-        tmp_gt_files_test = args.tmp_gt_files.split('.')[0]+f"_test_client{args.client_id}.txt"
+        tmp_gt_files_train = args.tmp_gt_files_train.split('.')[0]+f"_train_client{args.client_id}.txt"
         _f = open(tmp_gt_files_train, 'w')
-        [_f.write(x) for x in random.sample(population=open(args.new_data,'r').readlines(), k=args.new_data_num_images_train)]
+        data=check_dataset(args.new_data_conf)['train']
+        [_f.write(x) for x in random.sample(population=open(data,'r').readlines(), k=args.new_data_num_images_train)]
         _f.close()
+        return tmp_gt_files_train
+    
+    def get_X_GTs_test(args):
+        import random
+        tmp_gt_files_test = args.tmp_gt_files_test.split('.')[0]+f"_test_client{args.client_id}.txt"
         __f = open(tmp_gt_files_test, 'w')
-        [__f.write(x) for x in random.sample(population=open(args.new_data_test,'r').readlines(), k=args.new_data_num_images_train)]
+        data=check_dataset(args.new_data_conf)['val']
+        [__f.write(x) for x in random.sample(population=open(args.new_data_test,'r').readlines(), k=args.new_data_num_images_test)]
         __f.close()
-        return tmp_gt_files_train, tmp_gt_files_test
+        return tmp_gt_files_test
         
     def partition_data(data_path,total_num=[],shuffle=True):
         if os.path.isfile(data_path):
@@ -269,9 +292,9 @@ if use_shoaib_code:
                 shutil.copyfile(os.path.join(merged_dir,_file), os.path.join( target, os.path.basename(_file)) )
                 
 
-    def move_images(args,target):
+    def move_images(args,srcPath,target):
         new_files=[]
-        merged_dir = os.path.abspath(os.path.split(args.path_low)[0])
+        merged_dir = os.path.abspath(os.path.split(srcPath)[0])
         target = os.path.abspath(target)
         for _file in os.listdir(merged_dir):
             if _file.endswith('.jpg'):
@@ -482,7 +505,7 @@ if use_shoaib_code:
             print(f"Error in Merging - {e}")
         
         _log_it(args,f"Move the images to the Recover-Merged directory for next training.")
-        move_images(args,opt_merge.merged)
+        move_images(args,low_conf_pred_path,opt_merge.merged)
             
         return opt_merge.merged
     
@@ -602,37 +625,20 @@ class YOLOv5Trainer(ClientTrainer):
         compute_loss = ComputeLoss(model)
         
         
-        
-        # %% ======================== Shoaib's part =======================================
-        args.client_data_size_org_train = len(train_data.dataset.labels)
-        args.client_data_size_org_test = len(test_data.dataset.labels)
-        args.logging = logging
-        if use_shoaib_code: # TODO: 
-            train_data, test_data = use_new_data(args,model,compute_loss,train_data, test_data)
-        args.client_data_size_mod_train = len(train_data.dataset.labels)
-        args.client_data_size_mod_test = len(test_data.dataset.labels)
-        # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
-        
-        
-        
-        
 
         # %% ======================= Validation Part - Before Training ====================================
 
-        if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tTesting on {args.client_data_size_mod_test} images before training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
-            
+        LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tTesting on client {args.client_id} before starting training.\n"))
+        
         logging.info("Start val on Trainer before training {}".format(host_id))
-        save_dir = self.args.save_dir
-        data_dict = check_dataset(args.data_conf)
-        self._val(  data=data_dict,
+        self._val(  data=check_dataset(args.data_conf),
                     batch_size=args.batch_size,
                     imgsz=args.img_size[0],
                     half=False,
                     model=model,
                     single_cls=False,
                     dataloader=test_data,
-                    save_dir=save_dir,
+                    save_dir=self.args.save_dir,
                     plots=False,
                     compute_loss=compute_loss, 
                     args = args,
@@ -642,7 +648,21 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
+          
+        # %% ======================== Shoaib's part =======================================
+        args.client_data_size_org_train = len(train_data.dataset.labels)
+        args.client_data_size_org_test = len(test_data.dataset.labels)
+        args.logging = logging
+        if use_shoaib_code: # TODO: 
+            train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
+        args.client_data_size_mod_train = len(train_data.dataset.labels)
+        args.client_data_size_mod_test = 0 if test_data_with_pseudo==[] else len(test_data_with_pseudo.dataset.labels)
+        # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
         
+        
+        
+        
+      
         # %%
         # =================================================================================
         # ============================== Training Part ====================================
@@ -715,7 +735,6 @@ class YOLOv5Trainer(ClientTrainer):
                                             f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
                                             f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
                                             f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
-                                            f"round_idx":           self.round_idx,
                                             f"train_box_loss":      np.float(mloss[0]),
                                             f"train_obj_loss":      np.float(mloss[1]),
                                             f"train_cls_loss":      np.float(mloss[2]),
@@ -728,7 +747,7 @@ class YOLOv5Trainer(ClientTrainer):
 
             # # %% ============================== Saving Weights ===================================
             # if (epoch + 1) % self.args.checkpoint_interval == 0:
-            #     model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_epoch_{epoch}.pt")
+            #     model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_round_{self.round_idx}_epoch_{epoch}.pt")
             #     logging.info(f"Trainer {host_id} epoch {epoch} saving model to {model_path}")
                
             #     # Old saving method     # torch.save(model.state_dict(), model_path)
@@ -758,42 +777,16 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-
-        # %% =================== Validation Part - After Training ====================================
-
-        if use_shoaib_code: 
-            LOGGER.info(colorstr("bright_green","bold", f"\tTesting on {args.client_data_size_mod_test} images after training. Original testing data is {args.client_data_size_org_test} for client {args.client_id}.\n"))
-            
-        # if (epoch + 1) % self.args.frequency_of_the_test == 0:
-        # if (epoch + 1) % self.args.epochs == 0:
-        logging.info("Start val on Trainer {}".format(host_id))
-        #self.val(test_data, device, args)
-        save_dir  = self.args.save_dir
-        data_dict = check_dataset(args.data_conf)
-        self._val(  data=data_dict,
-                    batch_size=args.batch_size,
-                    imgsz=args.img_size[0],
-                    half=False,
-                    model=model,
-                    single_cls=False,
-                    dataloader=test_data,
-                    save_dir=save_dir,
-                    plots=False,
-                    compute_loss=compute_loss, 
-                    args = args,
-                    phase= "After_Training_"
-                    )
-
         # ============================== Logging Results ===================================
         epoch_loss = np.array(epoch_loss)
         logging.info(f"Epoch loss: {epoch_loss}")
 
         fedml.mlops.log({
-                        f"round_idx": self.round_idx,
                         f"train_box_loss": np.float(epoch_loss[-1, 0]),
                         f"train_obj_loss": np.float(epoch_loss[-1, 1]),
                         f"train_cls_loss": np.float(epoch_loss[-1, 2]),
                         f"train_total_loss": np.float(epoch_loss[-1, :].sum()),
+                        f"Round_No": args.round_idx,
                         })
 
         self.round_loss.append(epoch_loss[-1, :])
@@ -801,6 +794,38 @@ class YOLOv5Trainer(ClientTrainer):
             self.round_loss = np.array(self.round_loss)
             logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
 
+
+
+
+
+
+        # %% =================== Validation Part - After Training ====================================
+        
+        test_data_list = [test_data         , test_data_with_pseudo          , new_test_data_gt             ]
+        test_data_desc = ["After_Training_" ,"After_Training_Merged_TestD_"  ,"After_Training_New_TestD_"   ]
+        
+        for val_data,data_desc in zip(test_data_list, test_data_desc):
+                
+            if val_data==[]:
+                pass
+            else:
+                if use_shoaib_code: 
+                    LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                    
+                logging.info(f"Start val on Trainer {host_id} using {val_data}")
+                self._val(  data=check_dataset(args.data_conf),
+                            batch_size=args.batch_size,
+                            imgsz=args.img_size[0],
+                            half=False,
+                            model=model,
+                            single_cls=False,
+                            dataloader=val_data,
+                            save_dir=self.args.save_dir,
+                            plots=False,
+                            compute_loss=compute_loss, 
+                            args = args,
+                            phase= data_desc
+                            )
 
 
 
@@ -830,7 +855,7 @@ class YOLOv5Trainer(ClientTrainer):
              phase=''):
         
         host_id = int(list(args.client_id_list)[1])
-        results, maps, _ = validate.run(data = data,
+        results, maps, _, ap50 = validate.run(data = data,
                                     batch_size = args.batch_size,#128,
                                     imgsz = imgsz,
                                     half = half,
@@ -839,7 +864,15 @@ class YOLOv5Trainer(ClientTrainer):
                                     dataloader = dataloader,
                                     save_dir = save_dir,
                                     plots = plots,
-                                    compute_loss = compute_loss)
+                                    compute_loss = compute_loss,)
+        
+        names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
+        for _idx, _ap50 in enumerate(ap50):
+            MLOpsProfilerEvent.log_to_wandb({
+                                            # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
+                                            f"{phase}{names[_idx]}_class_ap@50":_ap50 ,
+                                            f"Round_No": args.round_idx          
+                                            })
         
         
         args.client_map50_all[host_id]  = np.float(results[2])
@@ -847,20 +880,25 @@ class YOLOv5Trainer(ClientTrainer):
         
         MLOpsProfilerEvent.log_to_wandb(
                 {
-                    f"client_{host_id}_mean_precision":     np.float(results[0]),
-                    f"client_{host_id}_mean_recall":        np.float(results[1]),
-                    f"client_{host_id}_map@50":             np.float(results[2]),
-                    f"client_{host_id}_map":                np.float(results[3]),
+                    # f"client_{host_id}_mean_precision":     np.float(results[0]),
+                    # f"client_{host_id}_mean_recall":        np.float(results[1]),
+                    # f"client_{host_id}_map@50":             np.float(results[2]),
+                    # f"client_{host_id}_map":                np.float(results[3]),
                       
-                    f"client_{host_id}_test_box_loss":      np.float(results[4]),
-                    f"client_{host_id}_test_obj_loss":      np.float(results[5]),
-                    f"client_{host_id}_test_cls_loss":      np.float(results[6]),
+                    # f"client_{host_id}_test_box_loss":      np.float(results[4]),
+                    # f"client_{host_id}_test_obj_loss":      np.float(results[5]),
+                    # f"client_{host_id}_test_cls_loss":      np.float(results[6]),
                     
                     # f"{phase}client_{host_id}_training_data_org":  args.client_data_size_org_train,
                     # f"{phase}client_{host_id}_training_data_mod":  args.client_data_size_mod_train,
                     # f"{phase}client_{host_id}_testing_data_org":   args.client_data_size_org_test,
                     # f"{phase}client_{host_id}_testing_data_mod":   args.client_data_size_mod_test,
                     
+                    
+                    # f"mean_precision":      np.float(results[0]),
+                    # f"mean_recall":         np.float(results[1]),
+                    # f"map@50_all_classes":  np.float(results[2]),
+                    # f"map_all_classes":     np.float(results[3]),
                     
                     f"{phase}mean_precision":      np.float(results[0]),
                     f"{phase}mean_recall":         np.float(results[1]),
@@ -876,157 +914,157 @@ class YOLOv5Trainer(ClientTrainer):
                     # f"{phase}testing_data_org":    args.client_data_size_org_test,
                     # f"{phase}testing_data_mod":    args.client_data_size_mod_test,
                     
-                    f"{phase}client_{host_id}_round_idx": args.round_idx,
                     f"{phase}Round_No": args.round_idx,
+                    f"Round_No": args.round_idx,
                 }
             )
         
         for i,cls in enumerate(check_dataset(args.data_conf)['names']):
             MLOpsProfilerEvent.log_to_wandb({
-                                            f"client_{host_id}_map_{cls}": maps[i],
-                                            f"map_{cls}": maps[i],
-                                            f"client_{host_id}_round_idx": args.round_idx,
-                                            f"Round_No": args.round_idx,
+                                            # f"client_{host_id}_map_{cls}":  maps[i],
+                                            # f"map_{cls}":                   maps[i],
+                                            f"{phase}map_{cls}":            maps[i],
+                                            f"Round_No":                    args.round_idx,
                                             })
         
         logging.info(f"mAPs of all class in a list {maps}")
 
     
-    # def val(self, test_data, device, args):
-    #     host_id = int(list(args.client_id_list)[1])
-    #     logging.info(f"Trainer {host_id} val start")
-    #     model = self.model
-    #     self.round_idx = args.round_idx
-    #     args = self.args
-    #     hyp = self.hyp if self.hyp else self.args.hyp
+    def val(self, test_data, device, args):
+        host_id = int(list(args.client_id_list)[1])
+        logging.info(f"Trainer {host_id} val start")
+        model = self.model
+        self.round_idx = args.round_idx
+        args = self.args
+        hyp = self.hyp if self.hyp else self.args.hyp
 
-    #     model.eval()
-    #     model.to(device)
-    #     compute_loss = ComputeLoss(model)
-    #     loss = torch.zeros(3, device=device)
-    #     jdict, stats, ap, ap_class = [], [], [], []
-    #     s = ("%22s" + "%11s" * 6) % (
-    #         "Class",
-    #         "Images",
-    #         "Instances",
-    #         "P",
-    #         "R",
-    #         "mAP50",
-    #         "mAP50-95",
-    #     )
-    #     tp, fp, p, r, f1, mp, mr, map50, ap50, map = (
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #         0.0,
-    #     )
+        model.eval()
+        model.to(device)
+        compute_loss = ComputeLoss(model)
+        loss = torch.zeros(3, device=device)
+        jdict, stats, ap, ap_class = [], [], [], []
+        s = ("%22s" + "%11s" * 6) % (
+            "Class",
+            "Images",
+            "Instances",
+            "P",
+            "R",
+            "mAP50",
+            "mAP50-95",
+        )
+        tp, fp, p, r, f1, mp, mr, map50, ap50, map = (
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
 
-    #     conf_thres = 0.001
-    #     iou_thres = 0.6
-    #     max_det = 300
+        conf_thres = 0.001
+        iou_thres = 0.6
+        max_det = 300
 
-    #     nc = model.nc  # number of classes
-    #     iouv = torch.linspace(
-    #         0.5, 0.95, 10, device=device
-    #     )  # iou vector for mAP@0.5:0.95
-    #     niou = iouv.numel()
-    #     names = {
-    #         k: v
-    #         for k, v in enumerate(
-    #             model.names if hasattr(model, "names") else model.module.names
-    #         )
-    #     }
-    #     dt = Profile(), Profile(), Profile()
-    #     seen = 0
-    #     pbar = tqdm(test_data, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-    #     for (batch_idx, batch) in enumerate(pbar):
-    #         (im, targets, paths, shapes) = batch
-    #         im = im.to(device, non_blocking=True).float() / 255.0
-    #         targets = targets.to(device)
-    #         nb, _, height, width = im.shape  # batch size, channels, height, width
+        nc = model.nc  # number of classes
+        iouv = torch.linspace(
+            0.5, 0.95, 10, device=device
+        )  # iou vector for mAP@0.5:0.95
+        niou = iouv.numel()
+        names = {
+            k: v
+            for k, v in enumerate(
+                model.names if hasattr(model, "names") else model.module.names
+            )
+        }
+        dt = Profile(), Profile(), Profile()
+        seen = 0
+        pbar = tqdm(test_data, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+        for (batch_idx, batch) in enumerate(pbar):
+            (im, targets, paths, shapes) = batch
+            im = im.to(device, non_blocking=True).float() / 255.0
+            targets = targets.to(device)
+            nb, _, height, width = im.shape  # batch size, channels, height, width
 
-    #         # inference
-    #         with torch.no_grad(): 
-    #             preds, train_out = model(im)
-    #         loss += compute_loss(train_out, targets)[1]  # box, obj, cls
-    #         targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
-    #         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)]
-    #         preds = non_max_suppression(
-    #             preds,
-    #             conf_thres,
-    #             iou_thres,
-    #             labels=lb,
-    #             multi_label=True,
-    #             agnostic=False,
-    #             max_det=max_det,
-    #         )
+            # inference
+            with torch.no_grad(): 
+                preds, train_out = model(im)
+            loss += compute_loss(train_out, targets)[1]  # box, obj, cls
+            targets[:, 2:] *= torch.tensor((width, height, width, height), device=device)  # to pixels
+            lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)]
+            preds = non_max_suppression(
+                preds,
+                conf_thres,
+                iou_thres,
+                labels=lb,
+                multi_label=True,
+                agnostic=False,
+                max_det=max_det,
+            )
 
-    #         # Metrics
-    #         for si, pred in enumerate(preds):
-    #             labels = targets[targets[:, 0] == si, 1:]
-    #             nl, npr = (labels.shape[0],pred.shape[0])  # number of labels, predictions
-    #             path, shape = Path(paths[si]), shapes[si][0]
-    #             correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
-    #             seen += 1
+            # Metrics
+            for si, pred in enumerate(preds):
+                labels = targets[targets[:, 0] == si, 1:]
+                nl, npr = (labels.shape[0],pred.shape[0])  # number of labels, predictions
+                path, shape = Path(paths[si]), shapes[si][0]
+                correct = torch.zeros(npr, niou, dtype=torch.bool, device=device)  # init
+                seen += 1
 
-    #             if npr == 0:
-    #                 if nl:
-    #                     stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
-    #                 continue
+                if npr == 0:
+                    if nl:
+                        stats.append((correct, *torch.zeros((2, 0), device=device), labels[:, 0]))
+                    continue
 
-    #             # Predictions
-    #             predn = pred.clone()
-    #             scale_coords(im[si].shape[1:], predn[:, :4], shape, shapes[si][1])  # native-space pred
+                # Predictions
+                predn = pred.clone()
+                scale_coords(im[si].shape[1:], predn[:, :4], shape, shapes[si][1])  # native-space pred
 
-    #             # Evaluate
-    #             if nl:
-    #                 tbox = xywh2xyxy(labels[:, 1:5])  # target boxes
-    #                 scale_coords(
-    #                     im[si].shape[1:], tbox, shape, shapes[si][1]
-    #                 )  # native-space labels
-    #                 labelsn = torch.cat(
-    #                     (labels[:, 0:1], tbox), 1
-    #                 )  # native-space labels
-    #                 correct = process_batch(predn, labelsn, iouv)
-    #             stats.append(
-    #                 (correct, pred[:, 4], pred[:, 5], labels[:, 0])
-    #             )  # (correct, conf, pcls, tcls)
+                # Evaluate
+                if nl:
+                    tbox = xywh2xyxy(labels[:, 1:5])  # target boxes
+                    scale_coords(
+                        im[si].shape[1:], tbox, shape, shapes[si][1]
+                    )  # native-space labels
+                    labelsn = torch.cat(
+                        (labels[:, 0:1], tbox), 1
+                    )  # native-space labels
+                    correct = process_batch(predn, labelsn, iouv)
+                stats.append(
+                    (correct, pred[:, 4], pred[:, 5], labels[:, 0])
+                )  # (correct, conf, pcls, tcls)
 
-    #     # Compute metrics
-    #     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
-    #     if len(stats) and stats[0].any():
-    #         tp, fp, p, r, f1, ap, ap_class = ap_per_class(
-    #             *stats, plot=False, save_dir=self.args.save_dir, names=names
-    #         )
-    #         ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
-    #         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-    #         MLOpsProfilerEvent.log_to_wandb(
-    #         {
-    #             f"client_{host_id}_mean_precision": np.float(mp),
-    #             f"client_{host_id}_mean_recall":np.float(mr),
-    #             f"clinet_{host_id}_mAP@50":np.float(map50),
-    #             f"client_{host_id}_mAP@0.5:0.95":np.float(map),   
-    #             f"mean_precision": np.float(mp),
-    #             f"mean_recall":np.float(mr),
-    #             f"mAP@50":np.float(map50),
-    #             f"mAP@0.5:0.95":np.float(map),    
-    #             f"Round_No": args.round_idx,  
-    #         }
-    #     )
-    #     nt = np.bincount(
-    #         stats[3].astype(int), minlength=nc
-    #     )  # number of targets per class
+        # Compute metrics
+        stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
+        if len(stats) and stats[0].any():
+            tp, fp, p, r, f1, ap, ap_class = ap_per_class(
+                *stats, plot=False, save_dir=self.args.save_dir, names=names
+            )
+            ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
+            mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+            MLOpsProfilerEvent.log_to_wandb(
+            {
+                f"client_{host_id}_mean_precision": np.float(mp),
+                f"client_{host_id}_mean_recall":np.float(mr),
+                f"clinet_{host_id}_mAP@50":np.float(map50),
+                f"client_{host_id}_mAP@0.5:0.95":np.float(map),   
+                f"mean_precision": np.float(mp),
+                f"mean_recall":np.float(mr),
+                f"mAP@50":np.float(map50),
+                f"mAP@0.5:0.95":np.float(map),    
+                f"Round_No": args.round_idx,  
+            }
+        )
+        nt = np.bincount(
+            stats[3].astype(int), minlength=nc
+        )  # number of targets per class
         
         
 
-    #     # Print results
-    #     logging.info(s)
-    #     pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
-    #     logging.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
-    #     return
+        # Print results
+        logging.info(s)
+        pf = "%22s" + "%11i" * 2 + "%11.3g" * 4  # print format
+        logging.info(pf % ("all", seen, nt.sum(), mp, mr, map50, map))
+        return

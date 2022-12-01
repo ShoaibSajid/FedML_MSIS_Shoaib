@@ -44,7 +44,7 @@ class YOLOAggregator(ServerAggregator):
         half, single_cls, plots = False, False, False
         host_id = int(list(args.client_id_list)[1])
         logging.info(f"\n#########################| Server ID {host_id} performs evaluation |############################\n")
-        results, maps, _ = validate.run(data=data_dict,
+        results, maps, _, ap50 = validate.run(data=data_dict,
                                         batch_size=args.batch_size,
                                         imgsz=args.img_size[0],
                                         half=half,
@@ -56,55 +56,63 @@ class YOLOAggregator(ServerAggregator):
                                         compute_loss=compute_loss,
                                         device=device
                                         )
+        names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
         #return results, maps
-        
-        MLOpsProfilerEvent.log_to_wandb(
-                {
-                    f"Server_{host_id}_mean_precision": np.float(results[0]),
-                    f"Server_{host_id}_mean_recall": np.float(results[1]),
-                    f"Server_{host_id}_map@50": np.float(results[2]),
-                    f"Server_{host_id}_map": np.float(results[3]),
-                    f"Server_{host_id}_test_box_loss": np.float(results[4]),
-                    f"Server_{host_id}_test_obj_loss": np.float(results[5]),
-                    f"Server_{host_id}_test_cls_loss": np.float(results[6]),
-                    
-                    f"mean_precision": np.float(results[0]),
-                    f"mean_recall": np.float(results[1]),
-                    f"map@50_all_classes": np.float(results[2]),
-                    f"map_all_classes": np.float(results[3]),
-                    f"test_box_loss": np.float(results[4]),
-                    f"test_obj_loss": np.float(results[5]),
-                    f"test_cls_loss": np.float(results[6]),
-                    
-                    f"Before_Training_mean_precision": np.float(results[0]),
-                    f"Before_Training_mean_recall": np.float(results[1]),
-                    f"Before_Training_map@50_all_classes": np.float(results[2]),
-                    f"Before_Training_map_all_classes": np.float(results[3]),
-                    f"Before_Training_test_box_loss": np.float(results[4]),
-                    f"Before_Training_test_obj_loss": np.float(results[5]),
-                    f"Before_Training_test_cls_loss": np.float(results[6]),
-                    
-                    f"After_Training_mean_precision": np.float(results[0]),
-                    f"After_Training_mean_recall": np.float(results[1]),
-                    f"After_Training_map@50_all_classes": np.float(results[2]),
-                    f"After_Training_map_all_classes": np.float(results[3]),
-                    f"After_Training_test_box_loss": np.float(results[4]),
-                    f"After_Training_test_obj_loss": np.float(results[5]),
-                    f"After_Training_test_cls_loss": np.float(results[6]),
-                    
-                    f"Server_{host_id}_round_idx": args.round_idx,
-                    f"Round_No": args.round_idx,
-                    
-                }
-            )
-        
-        for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+        for phase in ["Before_Training_", "After_Training_" ,"After_Training_Merged_TestD_"  ,"After_Training_New_TestD_"]:
             MLOpsProfilerEvent.log_to_wandb(
-                {
-                    f"map_{cls}": maps[i],
-                    f"Round_No": args.round_idx,
-                }
-            )
+                    {
+                        f"{phase}mean_precision": np.float(results[0]),
+                        f"{phase}mean_recall": np.float(results[1]),
+                        f"{phase}map@50_all_classes": np.float(results[2]),
+                        f"{phase}map_all_classes": np.float(results[3]),
+                        f"{phase}test_box_loss": np.float(results[4]),
+                        f"{phase}test_obj_loss": np.float(results[5]),
+                        f"{phase}test_cls_loss": np.float(results[6]),
+                        f"Round_No": args.round_idx,
+                    }
+                )
+            
+            
+            for i,cls in enumerate(check_dataset(args.data_conf)['names']):
+                MLOpsProfilerEvent.log_to_wandb(
+                    {
+                        f"{phase}map_{cls}": maps[i],
+                        f"Round_No": args.round_idx,
+                    }
+                )
+                
+            for _idx, _ap50 in enumerate(ap50):
+                MLOpsProfilerEvent.log_to_wandb(
+                    {
+                        # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
+                        f"{phase}{names[_idx]}_class_ap@50":_ap50 ,
+                        f"Round_No": args.round_idx          
+                    }
+                )
+                
+                
+            # MLOpsProfilerEvent.log_to_wandb(
+            #         {
+            #             # f"Server_{host_id}_mean_precision": np.float(results[0]),
+            #             # f"Server_{host_id}_mean_recall": np.float(results[1]),
+            #             # f"Server_{host_id}_map@50": np.float(results[2]),
+            #             # f"Server_{host_id}_map": np.float(results[3]),
+            #             # f"Server_{host_id}_test_box_loss": np.float(results[4]),
+            #             # f"Server_{host_id}_test_obj_loss": np.float(results[5]),
+            #             # f"Server_{host_id}_test_cls_loss": np.float(results[6]),
+            #             # f"Server_{host_id}_round_idx": args.round_idx,
+                        
+            #             f"mean_precision": np.float(results[0]),
+            #             f"mean_recall": np.float(results[1]),
+            #             f"map@50_all_classes": np.float(results[2]),
+            #             f"map_all_classes": np.float(results[3]),
+            #             f"test_box_loss": np.float(results[4]),
+            #             f"test_obj_loss": np.float(results[5]),
+            #             f"test_cls_loss": np.float(results[6]),
+            #             f"Round_No": args.round_idx,
+                        
+            #         }
+            #     )
         logging.info(f"mAPs of all class in a list {maps}")
 
     def _test(self, test_data, device, args):

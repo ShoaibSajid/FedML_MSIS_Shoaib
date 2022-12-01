@@ -265,19 +265,16 @@ def run(
 
     # Compute metrics
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
+    ap50=[]
     if len(stats) and stats[0].any():
         tp, fp, p, r, f1, ap, ap_class = ap_per_class(*stats, plot=plots, save_dir=save_dir, names=names)
         ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-        MLOpsProfilerEvent.log_to_wandb({
-                                        # f"client_{device.index}_car_class_ap@50": np.float(ap50[0]),
-                                        # f"client_{device.index}_bus_class_ap@50": np.float(ap50[1]),
-                                        # f"client_{device.index}_truck_class_ap@50":np.float(ap50[2]),
-                                        # f"client_{device.index}_pedestrian_class_ap@50":np.float(ap50[8]),
-                                        f"car_class_ap@50": np.float(ap50[0]),
-                                        f"bus_class_ap@50": np.float(ap50[1]),
-                                        f"truck_class_ap@50":np.float(ap50[2]),
-                                        f"pedestrian_class_ap@50":np.float(ap50[8])})
+        
+        # for _idx, _ap50 in enumerate(ap50):
+        #     MLOpsProfilerEvent.log_to_wandb({
+        #                                     # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
+        #                                     f"{names[_idx]}_class_ap@50":_ap50 })
         
     nt = np.bincount(stats[3].astype(int), minlength=nc)  # number of targets per class
     
@@ -346,7 +343,7 @@ def run(
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t, ap50
 
 
 def parse_opt():
