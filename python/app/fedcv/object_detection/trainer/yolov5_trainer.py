@@ -38,6 +38,8 @@ from model.yolov5.utils.loss import ComputeLoss
 from model.yolov5.utils.metrics import (ConfusionMatrix, ap_per_class, box_iou,
                                         yolov5_ap_per_class)
 
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 use_shoaib_code=True
 if use_shoaib_code:      
 
@@ -455,7 +457,8 @@ if use_shoaib_code:
             
             deep_sort_model     = "resnet50_MSMT17"
             yolo_model          = []
-            conf_thres          = args.conf_thres
+            low_conf_thres      = args.conf_thresh_low
+            high_conf_thres     = args.conf_thresh_high
             iou_thres           = args.iou_thres
             save_txt            = True
             exist_ok            = True
@@ -478,7 +481,7 @@ if use_shoaib_code:
             opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-FW'
             opt_recovery.reverse= False
             with torch.no_grad():
-                _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output}.")
+                _log_it(args,f"Performing pseudo label recovery in Forward direction at {opt_recovery.output} on device {opt_recovery.device}.")
                 recover.detect(opt_recovery,args)     
         except Exception as e:    
             print(f"Error in FW Recovery - {e}")
@@ -488,7 +491,7 @@ if use_shoaib_code:
             opt_recovery.output = os.path.split( opt_recovery.source )[0] +'/Recover-BW'
             opt_recovery.reverse= True
             with torch.no_grad():
-                _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output}.")
+                _log_it(args,f"Performing pseudo label recovery in Backward direction at {opt_recovery.output} on device {opt_recovery.device}.")
                 recover.detect(opt_recovery,args)
         except Exception as e:    
             print(f"Error in BW Recovery - {e}")
