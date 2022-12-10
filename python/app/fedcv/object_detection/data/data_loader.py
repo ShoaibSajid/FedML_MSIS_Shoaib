@@ -32,6 +32,7 @@ from model.yolov5.utils.general import (
     LOGGER,
     NUM_THREADS,
     xyn2xy,
+    check_dataset,
     xywhn2xyxy,
     xyxy2xywhn,
 )
@@ -822,7 +823,31 @@ def non_iid_coco(label_path, client_num):
     return res_bin
     # print (res_bin)
 
+        
+def partition_data_custom(data_path,total_num=[],shuffle=True):
+    if os.path.isfile(data_path):
+        with open(data_path) as f:
+            data = sorted(f.readlines())
+        n_data = len(data)
+    else:
+        n_data = len(os.listdir(data_path))
+    if total_num==[]:
+        total_num = n_data
+    if shuffle:
+        idxs = np.random.permutation(total_num)
+    else:
+        idxs    = np.random.permutation(n_data-total_num)
+        _start  = idxs[np.random.permutation(total_num)[0]]
+        _idxs   = [] 
+        for i in range(_start,_start+total_num):
+            _idxs.append(i)
+        idxs    = np.array(_idxs)
+        print(f"\tTaking indices from {_start} to {_start+total_num}")
+    batch_idxs = np.array_split(idxs, 1)
+    net_dataidx_map = {i: batch_idxs[i] for i in range(1)}
+    return net_dataidx_map
 
+    
 def load_partition_data_coco(args, hyp, model):
     save_dir, epochs, batch_size, total_batch_size, weights = (
         Path(args.save_dir),
@@ -851,9 +876,11 @@ def load_partition_data_coco(args, hyp, model):
 
     # client_list = []
 
-    net_dataidx_map = partition_data(
-        train_path, partition=partition, n_nets=client_number
-    )
+    if args.use_same_training_on_all_clients:
+        net_dataidx_map = partition_data(train_path, partition=partition, n_nets=1)
+    else:
+        net_dataidx_map = partition_data(train_path, partition=partition, n_nets=client_number)
+        
     net_dataidx_map_test = partition_data(
         test_path, partition=partition, n_nets=1
     )
@@ -888,9 +915,11 @@ def load_partition_data_coco(args, hyp, model):
     else:
         client_idx = int(args.process_id) - 1
 
-        logging.info(
-            f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[client_idx]}"
-        )
+        if args.use_same_training_on_all_clients: 
+            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[0]}")
+        else:
+            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[client_number]}")
+            
         # Train Dataloader
         dataloader, dataset = create_dataloader(
             train_path,
@@ -901,7 +930,7 @@ def load_partition_data_coco(args, hyp, model):
             hyp=hyp,
             rect=True,
             augment=True,
-            net_dataidx_map=net_dataidx_map[client_idx],
+            net_dataidx_map=net_dataidx_map[0] if args.use_same_training_on_all_clients else net_dataidx_map[client_number] ,
             workers=args.worker_num,
         )
         train_dataset_dict[client_idx] = dataset
@@ -912,6 +941,26 @@ def load_partition_data_coco(args, hyp, model):
     
     args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
     
+    
+    
+    
+    # Test data from new dataset
+    if args.generate_validation_pseudos:
+        net_dataidx_map_test_new= partition_data_custom(check_dataset(args.new_data_conf)['val'],total_num=args.new_data_num_images_test)
+        new_test_dataloader_gt  = create_dataloader(check_dataset(args.new_data_conf)['val'],
+                                                    imgsz_test,
+                                                    total_batch_size,
+                                                    gs,
+                                                    args,  # testloader
+                                                    hyp=hyp,
+                                                    rect=True,
+                                                    rank=-1,
+                                                    pad=0.5,
+                                                    net_dataidx_map=net_dataidx_map_test_new[0],
+                                                    workers=args.worker_num,
+                                                    )[0]
+        args.new_test_dataloader_gt =    new_test_dataloader_gt
+        
     return (
         train_data_num,
         test_data_num,

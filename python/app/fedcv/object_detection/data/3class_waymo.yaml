@@ -1,7 +1,7 @@
 
 path: ../../
-# train: ../../../../3class_waymo/3class_waymo_train.txt  
-train: ../../../../3class_waymo/3class_waymo_val.txt  
+train: ../../../../3class_waymo/3class_waymo_train.txt  
+# train: ../../../../3class_waymo/3class_waymo_val.txt  
 val: ../../../../3class_waymo/3class_waymo_val.txt
 test: ../../../../3class_waymo/3class_waymo_val.txt
 

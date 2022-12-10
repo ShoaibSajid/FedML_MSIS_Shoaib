@@ -64,7 +64,7 @@ if use_shoaib_code:
         args.curr_step=0
         args.old_train_data = train_data
         args.old_test_data  = test_data
-        genTest = args.generate_validation_pseudos
+        genTest = False # args.generate_validation_pseudos
         
         merged_test_dataloader, new_test_dataloader_gt = [], []
         
@@ -112,7 +112,7 @@ if use_shoaib_code:
                         if genTest: args.save_dir_test  = args.save_dir/'test'
                             
                         # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
-                        if args.rank in args.psuedo_generate_clients:
+                        if args.rank in args.psuedo_generate_clients and not (args.rank in args.psuedo_recovery_on_clients):
                             # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
                             _f_train =      pseudo_labels(  data            =   check_dataset(args.new_data_conf),
                                                             model           =   model,
@@ -658,6 +658,7 @@ class YOLOv5Trainer(ClientTrainer):
         args.logging = logging
         if use_shoaib_code: # TODO: 
             train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
+            if args.generate_validation_pseudos: new_test_data_gt = args.new_test_dataloader_gt
         args.client_data_size_mod_train = len(train_data.dataset.labels)
         args.client_data_size_mod_test = 0 if test_data_with_pseudo==[] else len(test_data_with_pseudo.dataset.labels)
         # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
@@ -670,9 +671,9 @@ class YOLOv5Trainer(ClientTrainer):
         # =================================================================================
         # ============================== Training Part ====================================
         # =================================================================================
-        epoch_loss = []
         mloss = torch.zeros(3, device=device)  # mean losses
         for epoch in range(args.epochs):
+            epoch_loss = []
             model.train()
             t = time.time()
             batch_loss = []
@@ -748,87 +749,87 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-            # # %% ============================== Saving Weights ===================================
-            # if (epoch + 1) % self.args.checkpoint_interval == 0:
-            #     model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_round_{self.round_idx}_epoch_{epoch}.pt")
-            #     logging.info(f"Trainer {host_id} epoch {epoch} saving model to {model_path}")
+            # %% ============================== Saving Weights ===================================
+            if (epoch + 1) % self.args.checkpoint_interval == 0:
+                model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_round_{self.round_idx}_epoch_{epoch}.pt")
+                logging.info(f"Trainer {host_id} epoch {epoch} saving model to {model_path}")
                
-            #     # Old saving method     # torch.save(model.state_dict(), model_path)
-            #     # Modified saving method
-            #     ckpt = {'epoch': epoch,
-            #             'model': copy.deepcopy(model).half(),
-            #             'optimizer': optimizer.state_dict()}
-            #     torch.save(ckpt, model_path)
-            #     del ckpt
+                # Old saving method     # torch.save(model.state_dict(), model_path)
+                # Modified saving method
+                ckpt = {'epoch': epoch,
+                        'model': copy.deepcopy(model).half(),
+                        'optimizer': optimizer.state_dict()}
+                torch.save(ckpt, model_path)
+                del ckpt
 
 
 
 
-        # %% ============================== Saving Weights ===================================
-        logging.info("End training on Trainer {}".format(host_id))
-        
-        model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt"
-        logging.info(f"Trainer {host_id} saving model to {model_path}")
-        
-        # Old saving method     # torch.save(model.state_dict(), model_path)
-        # Modified saving method
-        ckpt = {'model': copy.deepcopy(model).half(),
-                'optimizer': optimizer.state_dict()}
-        torch.save(ckpt, model_path)
-        del ckpt
+            # %% ============================== Saving Weights ===================================
+            logging.info("End training on Trainer {}".format(host_id))
+            
+            model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt"
+            logging.info(f"Trainer {host_id} saving model to {model_path}")
+            
+            # Old saving method     # torch.save(model.state_dict(), model_path)
+            # Modified saving method
+            ckpt = {'model': copy.deepcopy(model).half(),
+                    'optimizer': optimizer.state_dict()}
+            torch.save(ckpt, model_path)
+            del ckpt
 
 
 
 
-        # ============================== Logging Results ===================================
-        epoch_loss = np.array(epoch_loss)
-        logging.info(f"Epoch loss: {epoch_loss}")
+            # ============================== Logging Results ===================================
+            epoch_loss = np.array(epoch_loss)
+            logging.info(f"Epoch loss: {epoch_loss}")
 
-        fedml.mlops.log({
-                        f"train_box_loss": np.float(epoch_loss[-1, 0]),
-                        f"train_obj_loss": np.float(epoch_loss[-1, 1]),
-                        f"train_cls_loss": np.float(epoch_loss[-1, 2]),
-                        f"train_total_loss": np.float(epoch_loss[-1, :].sum()),
-                        f"Round_No": args.round_idx,
-                        })
+            fedml.mlops.log({
+                            f"train_box_loss": np.float(epoch_loss[-1, 0]),
+                            f"train_obj_loss": np.float(epoch_loss[-1, 1]),
+                            f"train_cls_loss": np.float(epoch_loss[-1, 2]),
+                            f"train_total_loss": np.float(epoch_loss[-1, :].sum()),
+                            f"Round_No": args.round_idx,
+                            })
 
-        self.round_loss.append(epoch_loss[-1, :])
-        if self.round_idx == args.comm_round:
-            self.round_loss = np.array(self.round_loss)
-            logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
-
-
+            self.round_loss.append(epoch_loss[-1, :])
+            if self.round_idx == args.comm_round:
+                self.round_loss = np.array(self.round_loss)
+                logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
 
 
 
 
-        # %% =================== Validation Part - After Training ====================================
-        
-        test_data_list = [test_data         , test_data_with_pseudo          , new_test_data_gt             ]
-        test_data_desc = ["After_Training_" ,"After_Training_Merged_TestD_"  ,"After_Training_New_TestD_"   ]
-        
-        for val_data,data_desc in zip(test_data_list, test_data_desc):
-                
-            if val_data==[]:
-                pass
-            else:
-                if use_shoaib_code: 
-                    LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+
+
+            # %% =================== Validation Part - After Training ====================================
+            
+            test_data_list = [test_data         , test_data_with_pseudo          , new_test_data_gt             ]
+            test_data_desc = ["After_Training_" ,"After_Training_Merged_TestD_"  ,"After_Training_New_TestD_"   ]
+            
+            for val_data,data_desc in zip(test_data_list, test_data_desc):
                     
-                logging.info(f"Start val on Trainer {host_id} using {val_data}")
-                self._val(  data=check_dataset(args.data_conf),
-                            batch_size=args.batch_size,
-                            imgsz=args.img_size[0],
-                            half=False,
-                            model=model,
-                            single_cls=False,
-                            dataloader=val_data,
-                            save_dir=self.args.save_dir,
-                            plots=False,
-                            compute_loss=compute_loss, 
-                            args = args,
-                            phase= data_desc
-                            )
+                if val_data==[]:
+                    pass
+                else:
+                    if use_shoaib_code: 
+                        LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                        
+                    logging.info(f"Start val on Trainer {host_id} using {val_data}")
+                    self._val(  data=check_dataset(args.data_conf),
+                                batch_size=args.batch_size,
+                                imgsz=args.img_size[0],
+                                half=False,
+                                model=model,
+                                single_cls=False,
+                                dataloader=val_data,
+                                save_dir=self.args.save_dir,
+                                plots=False,
+                                compute_loss=compute_loss, 
+                                args = args,
+                                phase= data_desc
+                                )
 
 
 

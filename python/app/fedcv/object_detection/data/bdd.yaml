@@ -6,8 +6,8 @@
 
 
 path: ../../
-#train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
-#val: ../../../../BDD/val_bdd.txt
+# train: ../../../../BDD/train_bdd.txt  #hackathon_train.txt   #train_5K.txt
+# val: ../../../../BDD/val_bdd.txt
 train: ../../../../BDD/train_5K.txt  #hackathon_train.txt   #train_5K.txt
 val: ../../../../BDD/val_1K.txt
 test: ../../../../BDD/test_bdd.txt
