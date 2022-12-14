@@ -619,6 +619,7 @@ class YOLOv5Trainer(ClientTrainer):
         total_epochs = epochs * args.comm_round
         lf = (lambda x: ((1 + math.cos(x * math.pi / total_epochs)) / 2) * (1 - hyp["lrf"]) + hyp["lrf"] )  # cosine
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+        # scheduler = lr_scheduler.ConstantLR(optimizer, lr_lambda=lf)
 
 
 
@@ -631,22 +632,48 @@ class YOLOv5Trainer(ClientTrainer):
 
         # %% ======================= Validation Part - Before Training ====================================
 
-        LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tTesting on client {args.client_id} before starting training.\n"))
+        LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tValidating on client {args.client_id} before starting training.\n"))
         
         logging.info("Start val on Trainer before training {}".format(host_id))
-        self._val(  data=check_dataset(args.data_conf),
-                    batch_size=args.batch_size,
-                    imgsz=args.img_size[0],
-                    half=False,
-                    model=model,
-                    single_cls=False,
-                    dataloader=test_data,
-                    save_dir=self.args.save_dir,
-                    plots=False,
-                    compute_loss=compute_loss, 
-                    args = args,
-                    phase= "Before_Training_"
-                    )
+        # self._val(  data=check_dataset(args.data_conf),
+        #             batch_size=args.batch_size,
+        #             imgsz=args.img_size[0],
+        #             half=False,
+        #             model=model,
+        #             single_cls=False,
+        #             dataloader=test_data,
+        #             save_dir=self.args.save_dir,
+        #             plots=False,
+        #             compute_loss=compute_loss, 
+        #             args = args,
+        #             phase= "Before_Training_"
+        #             )
+
+        test_data_list_before = [test_data              , args.test_dataloader_merged           , args.test_dataloader_new          ]
+        test_data_desc_before = ["Before_Training_"     ,"Before_Training_Merged_TestD_"        ,"Before_Training_New_TestD_"       ]
+        
+        for val_data,data_desc in zip(test_data_list_before, test_data_desc_before):
+                
+            if val_data==[]:
+                pass
+            else:
+                if use_shoaib_code: 
+                    LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                    
+                logging.info(f"Start val on Trainer {host_id} using {val_data}")
+                self._val(  data=check_dataset(args.data_conf),
+                            batch_size=args.batch_size,
+                            imgsz=args.img_size[0],
+                            half=False,
+                            model=model,
+                            single_cls=False,
+                            dataloader=val_data,
+                            save_dir=self.args.save_dir,
+                            plots=False,
+                            compute_loss=compute_loss, 
+                            args = args,
+                            phase= data_desc
+                            )
 
 
 
@@ -657,10 +684,11 @@ class YOLOv5Trainer(ClientTrainer):
         args.client_data_size_org_test = len(test_data.dataset.labels)
         args.logging = logging
         if use_shoaib_code: # TODO: 
-            train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
-            if args.generate_validation_pseudos: new_test_data_gt = args.new_test_dataloader_gt
+            try:
+                train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
+            except Exception as e:
+                print(f"Some error \n\t{e}")
         args.client_data_size_mod_train = len(train_data.dataset.labels)
-        args.client_data_size_mod_test = 0 if test_data_with_pseudo==[] else len(test_data_with_pseudo.dataset.labels)
         # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
         
         
@@ -714,7 +742,8 @@ class YOLOv5Trainer(ClientTrainer):
                 mem = "%.3gG" % (torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0)  # (GB)
                 s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
                 print(s)
-
+                
+                
             # ============= Update learning rate =============
             logging.info(s)
             scheduler.step()
@@ -805,8 +834,8 @@ class YOLOv5Trainer(ClientTrainer):
 
             # %% =================== Validation Part - After Training ====================================
             
-            test_data_list = [test_data         , test_data_with_pseudo          , new_test_data_gt             ]
-            test_data_desc = ["After_Training_" ,"After_Training_Merged_TestD_"  ,"After_Training_New_TestD_"   ]
+            test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+            test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
             
             for val_data,data_desc in zip(test_data_list, test_data_desc):
                     
@@ -896,7 +925,6 @@ class YOLOv5Trainer(ClientTrainer):
                     # f"{phase}client_{host_id}_training_data_org":  args.client_data_size_org_train,
                     # f"{phase}client_{host_id}_training_data_mod":  args.client_data_size_mod_train,
                     # f"{phase}client_{host_id}_testing_data_org":   args.client_data_size_org_test,
-                    # f"{phase}client_{host_id}_testing_data_mod":   args.client_data_size_mod_test,
                     
                     
                     # f"mean_precision":      np.float(results[0]),
@@ -916,7 +944,6 @@ class YOLOv5Trainer(ClientTrainer):
                     # f"{phase}training_data_org":   args.client_data_size_org_train,
                     # f"{phase}training_data_mod":   args.client_data_size_mod_train,
                     # f"{phase}testing_data_org":    args.client_data_size_org_test,
-                    # f"{phase}testing_data_mod":    args.client_data_size_mod_test,
                     
                     f"{phase}Round_No": args.round_idx,
                     f"Round_No": args.round_idx,

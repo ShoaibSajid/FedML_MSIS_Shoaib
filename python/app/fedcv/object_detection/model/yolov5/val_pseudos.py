@@ -50,7 +50,7 @@ from utils.general import (LOGGER, check_dataset, check_img_size,
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 def save_one_txt(predn, save_conf, shape, file):
     # import os

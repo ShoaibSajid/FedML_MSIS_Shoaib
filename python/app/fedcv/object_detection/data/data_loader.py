@@ -823,6 +823,55 @@ def non_iid_coco(label_path, client_num):
     return res_bin
     # print (res_bin)
 
+def merge_training_lists(args, org_files = [], new_data_path = []):
+    
+    # Original Dataset
+    if org_files==[]:
+        org_files = args.org_data, new_data_path = args.new_pseudos_recovered
+    
+    
+    
+    # New Dataset
+    isfile = os.path.isfile(new_data_path)
+    if isfile:
+        with open(new_data_path) as f:
+            data = sorted(f.readlines())
+        n_data = len(data)
+    else:
+        n_data = len(os.listdir(new_data_path))
+        
+        # new_files = os.listdir(new_data_path)
+        new_files=[]
+        for _file in os.listdir(new_data_path):
+            if _file.endswith('.jpg'):
+                new_files.append(os.path.join(os.path.abspath(new_data_path),_file))
+    
+    
+    
+    
+    
+    
+    # _log_it(args,f"Merging {len(org_files)} images from {args.data_conf} with {len(new_files)} images from {new_data_path}.")
+    tmp_merge_file = args.tmp_merge_file
+    with open(tmp_merge_file , 'w') as outfile:
+        for line in new_files:
+            outfile.write(line+'\n')
+            # outtext = os.path.join(new_data_path,line)+'\n'
+            # outfile.write(os.path.abspath(outtext))
+            
+    numimgs = len(org_files)+len(new_files)
+    return tmp_merge_file, numimgs
+
+
+
+        
+def merge_data_files(args, dl1, dl2):
+    imgs = dl1.dataset.img_files + dl2.dataset.img_files
+    with open(args.tmp_merge_file , 'w') as outfile:
+        for line in imgs:
+            outfile.write(line+'\n')
+    return args.tmp_merge_file
+
         
 def partition_data_custom(data_path,total_num=[],shuffle=True):
     if os.path.isfile(data_path):
@@ -941,9 +990,7 @@ def load_partition_data_coco(args, hyp, model):
     
     args.new_dataloader_args = [ imgsz_test, total_batch_size, gs, args, hyp, True, -1, 0.5, args.worker_num]
     
-    
-    
-    
+
     # Test data from new dataset
     if args.generate_validation_pseudos:
         net_dataidx_map_test_new= partition_data_custom(check_dataset(args.new_data_conf)['val'],total_num=args.new_data_num_images_test)
@@ -959,8 +1006,28 @@ def load_partition_data_coco(args, hyp, model):
                                                     net_dataidx_map=net_dataidx_map_test_new[0],
                                                     workers=args.worker_num,
                                                     )[0]
-        args.new_test_dataloader_gt =    new_test_dataloader_gt
+        args.test_dataloader_new =    new_test_dataloader_gt
         
+        
+        # %% =========================== Merged Dataset ==================================
+        merge_data_files( args,test_dataloader_global,new_test_dataloader_gt)
+        net_dataidx_map_merged  = partition_data(args.tmp_merge_file, partition=partition, n_nets=1)
+        merged_testloader       = create_dataloader(
+                                                args.tmp_merge_file,
+                                                imgsz_test,
+                                                total_batch_size,
+                                                gs,
+                                                args,  # testloader
+                                                hyp=hyp,
+                                                rect=True,
+                                                rank=-1,
+                                                pad=0.5,
+                                                net_dataidx_map=net_dataidx_map_merged[0],
+                                                workers=args.worker_num,
+                                                )[0]
+        args.test_dataloader_merged = merged_testloader       
+    
+    
     return (
         train_data_num,
         test_data_num,
