@@ -61,6 +61,7 @@ if use_shoaib_code:
         
         
         # -------------------------------- Shoaib Code --------------------------------------- #
+        args.flag_new_data = 0
         args.curr_step=0
         args.old_train_data = train_data
         args.old_test_data  = test_data
@@ -112,7 +113,8 @@ if use_shoaib_code:
                         if genTest: args.save_dir_test  = args.save_dir/'test'
                             
                         # ------------------ Generate only high confidence pseudo labels without confidence values -----------------
-                        if args.rank in args.psuedo_generate_clients and not (args.rank in args.psuedo_recovery_on_clients):
+                        # if not args.use_new_data_recover and args.rank in args.psuedo_generate_clients and not (args.rank in args.psuedo_recovery_on_clients):
+                        if not args.use_new_data_recover :
                             # Generate HIGH Confidence Pseudo Labels without confidence values for new dataset
                             _f_train =      pseudo_labels(  data            =   check_dataset(args.new_data_conf),
                                                             model           =   model,
@@ -153,7 +155,8 @@ if use_shoaib_code:
 
 
                         # ----------------- Generate Pseudo Labels and perform missing box recovery --------------------
-                        if args.use_new_data_recover and (args.rank in args.psuedo_recovery_on_clients): #TODO: Should we apply recovery  on the generated pseudo labels 
+                        if args.use_new_data_recover: #TODO: Should we apply recovery  on the generated pseudo labels 
+                        # if args.use_new_data_recover and (args.rank in args.psuedo_recovery_on_clients): #TODO: Should we apply recovery  on the generated pseudo labels 
 
                             # Train Dataset
                             # Generate Pseudo Labels for new dataset
@@ -226,7 +229,9 @@ if use_shoaib_code:
                 _log_it(args,f"Trouble loading the pseudo labels.\n\tError: {e}")
         else:
             _log_it(args,f"Continue with original data only.")
+            return train_data, merged_test_dataloader, new_test_dataloader_gt
         
+        args.flag_new_data = 1
         args.new_train_data = train_data
         if genTest: args.merged_test_data = merged_test_dataloader
         if genTest: args.new_test_data_GT = new_test_dataloader_gt
@@ -617,10 +622,12 @@ class YOLOv5Trainer(ClientTrainer):
 
         # %% =============== Define Learning Rate scheduler based on total epochs ==================
         total_epochs = epochs * args.comm_round
+        # total_epochs = max ( 500, 300+epochs )
         lf = (lambda x: ((1 + math.cos(x * math.pi / total_epochs)) / 2) * (1 - hyp["lrf"]) + hyp["lrf"] )  # cosine
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
         # scheduler = lr_scheduler.ConstantLR(optimizer, lr_lambda=lf)
-
+        for _i_ in tqdm(range((args.round_idx)*epochs), desc='Running for learning rate decrease', leave=True):
+            scheduler.step()
 
 
         # %% =============== Model Loss and Move model to device ======================
@@ -632,50 +639,65 @@ class YOLOv5Trainer(ClientTrainer):
 
         # %% ======================= Validation Part - Before Training ====================================
 
-        LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tValidating on client {args.client_id} before starting training.\n"))
+        # LOGGER.info(colorstr("bright_green","bold", f"\n\n\n\tValidating on client {args.client_id} before starting training.\n"))
         
-        logging.info("Start val on Trainer before training {}".format(host_id))
-        # self._val(  data=check_dataset(args.data_conf),
-        #             batch_size=args.batch_size,
-        #             imgsz=args.img_size[0],
-        #             half=False,
-        #             model=model,
-        #             single_cls=False,
-        #             dataloader=test_data,
-        #             save_dir=self.args.save_dir,
-        #             plots=False,
-        #             compute_loss=compute_loss, 
-        #             args = args,
-        #             phase= "Before_Training_"
-        #             )
+        # logging.info("Start val on Trainer before training {}".format(host_id))
 
-        test_data_list_before = [test_data              , args.test_dataloader_merged           , args.test_dataloader_new          ]
-        test_data_desc_before = ["Before_Training_"     ,"Before_Training_Merged_TestD_"        ,"Before_Training_New_TestD_"       ]
+        # test_data_list_before = [test_data              , args.test_dataloader_merged           , args.test_dataloader_new          ]
+        # test_data_desc_before = ["Before_Training_"     ,"Before_Training_Merged_TestD_"        ,"Before_Training_New_TestD_"       ]
         
-        for val_data,data_desc in zip(test_data_list_before, test_data_desc_before):
+        # for val_data,data_desc in zip(test_data_list_before, test_data_desc_before):
                 
-            if val_data==[]:
-                pass
-            else:
-                if use_shoaib_code: 
-                    LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+        #     if val_data==[]:
+        #         pass
+        #     else:
+        #         if use_shoaib_code: 
+        #             LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                     
-                logging.info(f"Start val on Trainer {host_id} using {val_data}")
-                self._val(  data=check_dataset(args.data_conf),
-                            batch_size=args.batch_size,
-                            imgsz=args.img_size[0],
-                            half=False,
-                            model=model,
-                            single_cls=False,
-                            dataloader=val_data,
-                            save_dir=self.args.save_dir,
-                            plots=False,
-                            compute_loss=compute_loss, 
-                            args = args,
-                            phase= data_desc
-                            )
+        #         logging.info(f"Start val on Trainer {host_id} using {val_data}")
+        #         self._val(  data=check_dataset(args.data_conf),
+        #                     batch_size=args.batch_size,
+        #                     imgsz=args.img_size[0],
+        #                     half=False,
+        #                     model=model,
+        #                     single_cls=False,
+        #                     dataloader=val_data,
+        #                     save_dir=self.args.save_dir,
+        #                     plots=False,
+        #                     compute_loss=compute_loss, 
+        #                     args = args,
+        #                     phase= data_desc
+        #                     )
 
-
+        # %% =================== Validation Part - Before Starting Training ====================================
+        
+        # if args.round_idx==0:
+            # LOGGER.info(colorstr("bright_green","bold", f"\n\tValidating before starting training.\n"))
+            # test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+            # test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
+            
+            # for val_data,data_desc in zip(test_data_list, test_data_desc):
+                    
+            #     if val_data==[]:
+            #         pass
+            #     else:
+            #         if use_shoaib_code: 
+            #             LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                        
+            #         logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
+            #         self._val(  data=check_dataset(args.data_conf),
+            #                     batch_size=args.batch_size,
+            #                     imgsz=args.img_size[0],
+            #                     half=False,
+            #                     model=model,
+            #                     single_cls=False,
+            #                     dataloader=val_data,
+            #                     save_dir=self.args.save_dir,
+            #                     plots=False,
+            #                     compute_loss=compute_loss, 
+            #                     args = args,
+            #                     phase= data_desc
+            #                     )
 
 
           
@@ -683,11 +705,13 @@ class YOLOv5Trainer(ClientTrainer):
         args.client_data_size_org_train = len(train_data.dataset.labels)
         args.client_data_size_org_test = len(test_data.dataset.labels)
         args.logging = logging
+        args.flag_new_data = 0
         if use_shoaib_code: # TODO: 
             try:
                 train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
             except Exception as e:
                 print(f"Some error \n\t{e}")
+                args.flag_new_data = 0
         args.client_data_size_mod_train = len(train_data.dataset.labels)
         # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
         
@@ -701,92 +725,115 @@ class YOLOv5Trainer(ClientTrainer):
         # =================================================================================
         mloss = torch.zeros(3, device=device)  # mean losses
         for epoch in range(args.epochs):
-            epoch_loss = []
-            model.train()
-            t = time.time()
-            batch_loss = []
-            logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
-            
-            if use_shoaib_code: 
-                LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
-            
-            logging.info(("%10s" * 8) % ("Epoch", "batch", "gpu_mem", "box", "obj", "cls", "targets", "img_size"))
-            total_batches = train_data.batch_sampler.sampler.sampler.data_source.batch_shapes.shape[0]
-            for (batch_idx, batch) in enumerate(train_data):
-                # ============= Read images and move to GPU ===================
-                imgs, targets, paths, _ = batch
-                imgs = imgs.to(device, non_blocking=True).float() / 256.0 - 0.5
-
-
-                # ============= Clear the previous gradient values ============
-                optimizer.zero_grad()
+            if args.round_idx > 0:
+                epoch_loss = []
+                model.train()
+                t = time.time()
+                batch_loss = []
+                logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
                 
+                if use_shoaib_code: 
+                    LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
                 
-                # ========================== Forward ==========================
-                # with torch.cuda.amp.autocast(amp):
-                pred = model(imgs)  # forward
-                loss, loss_items = compute_loss(pred, targets.to(device).float())  # loss scaled by batch_size
+                logging.info(("%10s" * 8) % ("Epoch", "batch", "gpu_mem", "box", "obj", "cls", "targets", "img_size"))
+                total_batches = train_data.batch_sampler.sampler.sampler.data_source.batch_shapes.shape[0]
+                for (batch_idx, batch) in enumerate(train_data):
+                    # ============= Read images and move to GPU ===================
+                    imgs, targets, paths, _ = batch
+                    imgs = imgs.to(device, non_blocking=True).float() / 256.0 - 0.5
 
 
-                # ========================== Backward ==========================
-                loss.backward()
+                    # ============= Clear the previous gradient values ============
+                    optimizer.zero_grad()
+                    
+                    
+                    # ========================== Forward ==========================
+                    # with torch.cuda.amp.autocast(amp):
+                    pred = model(imgs)  # forward
+                    loss, loss_items = compute_loss(pred, targets.to(device).float())  # loss scaled by batch_size
+
+
+                    # ========================== Backward ==========================
+                    loss.backward()
+                    
+                    
+                    # ======================= Update weights =======================
+                    optimizer.step()
+                    batch_loss.append(loss.item())
+
+
+                    # ====================== Calculate Losses ======================
+                    mloss = (mloss * batch_idx + loss_items) / (batch_idx + 1)  # update mean losses
+                    mem = "%.3gG" % (torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0)  # (GB)
+                    s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
+                    print(s)
+                    
+                args.RoundxEpoch = (args.round_idx+1) * (epoch+1)
+                    
+                    
+                # ============= Update learning rate =============
+                logging.info(s)
+                scheduler.step()
+
+
+
+
+
+                # %% ============================== Results Logging ==================================
+                epoch_loss.append(copy.deepcopy(mloss.cpu().numpy()))
+                logging.info(f"Trainer {host_id} epoch {epoch} box: {mloss[0]} obj: {mloss[1]} cls: {mloss[2]} total: {mloss.sum()} time: {(time.time() - t)}")
+
+                logging.info("#" * 20)
+
+                try: logging.info(f"Trainer {host_id} epoch {epoch} time: {(time.time() - t)}s batch_num: {batch_idx} speed: {(time.time() - t)/batch_idx} s/batch")
+                except: pass
+                logging.info("#" * 200)
                 
+                MLOpsProfilerEvent.log_to_wandb({
+                                                f"client_{host_id}_round_idx":          self.round_idx,
+                                                f"client_{host_id}_train_box_loss":     np.float(mloss[0]),
+                                                f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
+                                                f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
+                                                f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
+                                                f"train_box_loss":      np.float(mloss[0]),
+                                                f"train_obj_loss":      np.float(mloss[1]),
+                                                f"train_cls_loss":      np.float(mloss[2]),
+                                                f"train_total_loss":    np.float(mloss.sum()),
+                                                f"Original Number of Training Images":       args.client_data_size_org_train,
+                                                f"Modified Number of Training Images":       args.client_data_size_mod_train,
+                                                f"Learning Rate":       scheduler.get_last_lr()[0],
+                                                f"Round_No":            args.round_idx,
+                                                f"Epoch_No":            epoch,
+                                                f"Round x Epoch":       args.RoundxEpoch,
+                                                })
+
+
+
+                # %% ============================== Saving Weights ===================================
+                if (epoch + 1) % self.args.checkpoint_interval == 0:
+                    model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_round_{self.round_idx}_epoch_{epoch}.pt")
+                    logging.info(f"Trainer {host_id} epoch {epoch} saving model to {model_path}")
                 
-                # ======================= Update weights =======================
-                optimizer.step()
-                batch_loss.append(loss.item())
+                    # Old saving method     # torch.save(model.state_dict(), model_path)
+                    # Modified saving method
+                    ckpt = {'epoch': epoch,
+                            'model': copy.deepcopy(model).half(),
+                            'optimizer': optimizer.state_dict()}
+                    torch.save(ckpt, model_path)
+                    del ckpt
 
 
-                # ====================== Calculate Losses ======================
-                mloss = (mloss * batch_idx + loss_items) / (batch_idx + 1)  # update mean losses
-                mem = "%.3gG" % (torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0)  # (GB)
-                s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
-                print(s)
+
+
+                # %% ============================== Saving Weights ===================================
+                logging.info("End training on Trainer {}".format(host_id))
                 
+                model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt"
+                logging.info(f"Trainer {host_id} saving model to {model_path}")
                 
-            # ============= Update learning rate =============
-            logging.info(s)
-            scheduler.step()
-
-
-
-
-
-            # %% ============================== Results Logging ==================================
-            epoch_loss.append(copy.deepcopy(mloss.cpu().numpy()))
-            logging.info(f"Trainer {host_id} epoch {epoch} box: {mloss[0]} obj: {mloss[1]} cls: {mloss[2]} total: {mloss.sum()} time: {(time.time() - t)}")
-
-            logging.info("#" * 20)
-
-            try: logging.info(f"Trainer {host_id} epoch {epoch} time: {(time.time() - t)}s batch_num: {batch_idx} speed: {(time.time() - t)/batch_idx} s/batch")
-            except: pass
-            logging.info("#" * 200)
-            
-            MLOpsProfilerEvent.log_to_wandb({
-                                            f"client_{host_id}_round_idx":          self.round_idx,
-                                            f"client_{host_id}_train_box_loss":     np.float(mloss[0]),
-                                            f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
-                                            f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
-                                            f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
-                                            f"train_box_loss":      np.float(mloss[0]),
-                                            f"train_obj_loss":      np.float(mloss[1]),
-                                            f"train_cls_loss":      np.float(mloss[2]),
-                                            f"train_total_loss":    np.float(mloss.sum()),
-                                            f"Round_No":            args.round_idx,
-                                            f"Epoch_No":            epoch,
-                                            })
-
-
-
-            # %% ============================== Saving Weights ===================================
-            if (epoch + 1) % self.args.checkpoint_interval == 0:
-                model_path = (self.args.save_dir/ "weights"/ f"model_client_{host_id}_round_{self.round_idx}_epoch_{epoch}.pt")
-                logging.info(f"Trainer {host_id} epoch {epoch} saving model to {model_path}")
-               
                 # Old saving method     # torch.save(model.state_dict(), model_path)
                 # Modified saving method
-                ckpt = {'epoch': epoch,
-                        'model': copy.deepcopy(model).half(),
+                ckpt = {'model': copy.deepcopy(model).half(),
                         'optimizer': optimizer.state_dict()}
                 torch.save(ckpt, model_path)
                 del ckpt
@@ -794,71 +841,56 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-            # %% ============================== Saving Weights ===================================
-            logging.info("End training on Trainer {}".format(host_id))
-            
-            model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt"
-            logging.info(f"Trainer {host_id} saving model to {model_path}")
-            
-            # Old saving method     # torch.save(model.state_dict(), model_path)
-            # Modified saving method
-            ckpt = {'model': copy.deepcopy(model).half(),
-                    'optimizer': optimizer.state_dict()}
-            torch.save(ckpt, model_path)
-            del ckpt
+                # ============================== Logging Results ===================================
+                epoch_loss = np.array(epoch_loss)
+                logging.info(f"Epoch loss: {epoch_loss}")
+
+                fedml.mlops.log({
+                                f"train_box_loss":      np.float(epoch_loss[-1, 0]),
+                                f"train_obj_loss":      np.float(epoch_loss[-1, 1]),
+                                f"train_cls_loss":      np.float(epoch_loss[-1, 2]),
+                                f"train_total_loss":    np.float(epoch_loss[-1, :].sum()),
+                                f"Round_No":            args.round_idx,
+                                f"Round x Epoch":       args.RoundxEpoch,
+                                })
+
+                self.round_loss.append(epoch_loss[-1, :])
+                if self.round_idx == args.comm_round:
+                    self.round_loss = np.array(self.round_loss)
+                    logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
 
 
 
+            else:
 
-            # ============================== Logging Results ===================================
-            epoch_loss = np.array(epoch_loss)
-            logging.info(f"Epoch loss: {epoch_loss}")
-
-            fedml.mlops.log({
-                            f"train_box_loss": np.float(epoch_loss[-1, 0]),
-                            f"train_obj_loss": np.float(epoch_loss[-1, 1]),
-                            f"train_cls_loss": np.float(epoch_loss[-1, 2]),
-                            f"train_total_loss": np.float(epoch_loss[-1, :].sum()),
-                            f"Round_No": args.round_idx,
-                            })
-
-            self.round_loss.append(epoch_loss[-1, :])
-            if self.round_idx == args.comm_round:
-                self.round_loss = np.array(self.round_loss)
-                logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
-
-
-
-
-
-
-            # %% =================== Validation Part - After Training ====================================
-            
-            test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-            test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
-            
-            for val_data,data_desc in zip(test_data_list, test_data_desc):
+                if epoch==0: 
+                    _log_it(args,"Skip training for round 0")
+                    # %% =================== Validation Part - After Training ====================================
+                    test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+                    test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
                     
-                if val_data==[]:
-                    pass
-                else:
-                    if use_shoaib_code: 
-                        LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
-                        
-                    logging.info(f"Start val on Trainer {host_id} using {val_data}")
-                    self._val(  data=check_dataset(args.data_conf),
-                                batch_size=args.batch_size,
-                                imgsz=args.img_size[0],
-                                half=False,
-                                model=model,
-                                single_cls=False,
-                                dataloader=val_data,
-                                save_dir=self.args.save_dir,
-                                plots=False,
-                                compute_loss=compute_loss, 
-                                args = args,
-                                phase= data_desc
-                                )
+                    for val_data,data_desc in zip(test_data_list, test_data_desc):
+                            
+                        if val_data==[]:
+                            pass
+                        else:
+                            if use_shoaib_code: 
+                                LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                                
+                            logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
+                            self._val(  data=check_dataset(args.data_conf),
+                                        batch_size=args.batch_size,
+                                        imgsz=args.img_size[0],
+                                        half=False,
+                                        model=model,
+                                        single_cls=False,
+                                        dataloader=val_data,
+                                        save_dir=self.args.save_dir,
+                                        plots=False,
+                                        compute_loss=compute_loss, 
+                                        args = args,
+                                        phase= data_desc
+                                        )
 
 
 
@@ -904,7 +936,8 @@ class YOLOv5Trainer(ClientTrainer):
             MLOpsProfilerEvent.log_to_wandb({
                                             # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
                                             f"{phase}{names[_idx]}_class_ap@50":_ap50 ,
-                                            f"Round_No": args.round_idx          
+                                            f"Round_No": args.round_idx,       
+                                            f"Round x Epoch":       args.RoundxEpoch,
                                             })
         
         
@@ -947,6 +980,7 @@ class YOLOv5Trainer(ClientTrainer):
                     
                     f"{phase}Round_No": args.round_idx,
                     f"Round_No": args.round_idx,
+                    f"Round x Epoch":       args.RoundxEpoch,
                 }
             )
         
@@ -956,6 +990,7 @@ class YOLOv5Trainer(ClientTrainer):
                                             # f"map_{cls}":                   maps[i],
                                             f"{phase}map_{cls}":            maps[i],
                                             f"Round_No":                    args.round_idx,
+                                            f"Round x Epoch":       args.RoundxEpoch,
                                             })
         
         logging.info(f"mAPs of all class in a list {maps}")

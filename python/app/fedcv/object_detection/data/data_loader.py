@@ -867,10 +867,11 @@ def merge_training_lists(args, org_files = [], new_data_path = []):
         
 def merge_data_files(args, dl1, dl2):
     imgs = dl1.dataset.img_files + dl2.dataset.img_files
-    with open(args.tmp_merge_file , 'w') as outfile:
+    tmp_file = os.path.splitext(args.tmp_merge_file)[0]+f"_{args.rank}.txt"
+    with open(tmp_file , 'w') as outfile:
         for line in imgs:
             outfile.write(line+'\n')
-    return args.tmp_merge_file
+    return tmp_file
 
         
 def partition_data_custom(data_path,total_num=[],shuffle=True):
@@ -926,13 +927,11 @@ def load_partition_data_coco(args, hyp, model):
     # client_list = []
 
     if args.use_same_training_on_all_clients:
-        net_dataidx_map = partition_data(train_path, partition=partition, n_nets=1)
+        net_dataidx_map_train = partition_data(train_path, partition=partition, n_nets=1)
     else:
-        net_dataidx_map = partition_data(train_path, partition=partition, n_nets=client_number)
+        net_dataidx_map_train = partition_data(train_path, partition=partition, n_nets=client_number)
         
-    net_dataidx_map_test = partition_data(
-        test_path, partition=partition, n_nets=1
-    )
+    net_dataidx_map_test = partition_data(test_path, partition=partition, n_nets=1)
 
     # Test Dataset
     test_dataloader_global = create_dataloader(
@@ -965,9 +964,9 @@ def load_partition_data_coco(args, hyp, model):
         client_idx = int(args.process_id) - 1
 
         if args.use_same_training_on_all_clients: 
-            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[0]}")
+            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[0]}")
         else:
-            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map[client_number]}")
+            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[args.rank-1]}")
             
         # Train Dataloader
         dataloader, dataset = create_dataloader(
@@ -979,7 +978,7 @@ def load_partition_data_coco(args, hyp, model):
             hyp=hyp,
             rect=True,
             augment=True,
-            net_dataidx_map=net_dataidx_map[0] if args.use_same_training_on_all_clients else net_dataidx_map[client_number] ,
+            net_dataidx_map=net_dataidx_map_train[0] if args.use_same_training_on_all_clients else net_dataidx_map_train[args.rank-1] ,
             workers=args.worker_num,
         )
         train_dataset_dict[client_idx] = dataset
@@ -1010,10 +1009,10 @@ def load_partition_data_coco(args, hyp, model):
         
         
         # %% =========================== Merged Dataset ==================================
-        merge_data_files( args,test_dataloader_global,new_test_dataloader_gt)
-        net_dataidx_map_merged  = partition_data(args.tmp_merge_file, partition=partition, n_nets=1)
+        merged_file             = merge_data_files( args,test_dataloader_global,new_test_dataloader_gt)
+        net_dataidx_map_merged  = partition_data(merged_file, partition=partition, n_nets=1)
         merged_testloader       = create_dataloader(
-                                                args.tmp_merge_file,
+                                                merged_file,
                                                 imgsz_test,
                                                 total_batch_size,
                                                 gs,
