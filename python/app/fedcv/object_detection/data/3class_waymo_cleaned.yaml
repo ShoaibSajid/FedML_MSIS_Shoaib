@@ -1,0 +1,9 @@
+
+path: ../../
+train: ../../../../3class_waymo_cleaned/sorted_train.txt  
+val: ../../../../3class_waymo_cleaned/val.txt
+test: ../../../../3class_waymo_cleaned/val.txt
+
+nc: 3
+
+names: ['vehicle', 'rider', 'pedestrian']

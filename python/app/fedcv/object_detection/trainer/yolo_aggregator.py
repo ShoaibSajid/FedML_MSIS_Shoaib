@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import numpy as np
@@ -58,7 +59,7 @@ class YOLOAggregator(ServerAggregator):
                 logging.info(f"\tStart val on Server using {val_data.dataset.path}")
                 
                 logging.info(colorstr("bright_yellow","bold", \
-                    f"\t{args._model_desc} performs evaluation on {' '.join(data_desc.split('_'))}\n"))
+                    f"\t{args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}\n"))
                 
                 _results = self._val(val_data, device, args, data_desc)
                 results.append(_results)
@@ -98,6 +99,7 @@ class YOLOAggregator(ServerAggregator):
         phase = [args._model_desc+'_'+data_desc] 
         #return results, maps
         for _phase in phase:
+            _phase="OnServer/"+_phase
             MLOpsProfilerEvent.log_to_wandb({
                     f"{_phase}mean_precision": np.float(results[0]),
                     f"{_phase}mean_recall": np.float(results[1]),
@@ -382,16 +384,17 @@ class YOLOAggregator(ServerAggregator):
         logging.info(f"Test metrics: {test_metrics}")
         return test_metrics
 
-    def test_all(
-        self, train_data_local_dict, test_data_local_dict, device, args=None
-    ) -> bool:
+    def test_all(self, args=None) -> bool:
         if args.round_idx is not None:
             self.round_idx = args.round_idx
             logging.info(f"round_idx: {self.round_idx}")
             if (self.round_idx + 1) % self.args.server_checkpoint_interval == 0:
+                ckpt = {'model': copy.deepcopy(self.model).half(),
+                        'optimizer': []}
                 logging.info(f"Saving model at round {self.round_idx}")
                 torch.save(
-                    self.model,
+                    ckpt,
                     self.args.save_dir / "weights" / f"aggr_model_{self.round_idx}.pt",
                 )
+                del ckpt
         return True

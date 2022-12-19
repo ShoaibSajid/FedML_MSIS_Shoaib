@@ -671,61 +671,62 @@ class YOLOv5Trainer(ClientTrainer):
 
         # %% =================== Validation Part - Before Starting Training ====================================
         
-        # if args.round_idx==0:
-            # LOGGER.info(colorstr("bright_green","bold", f"\n\tValidating before starting training.\n"))
-            # test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-            # test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
+        if args.round_idx==0:
+            LOGGER.info(colorstr("bright_green","bold", f"\n\tValidating before starting training.\n"))
+            test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+            test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
             
-            # for val_data,data_desc in zip(test_data_list, test_data_desc):
+            for val_data,data_desc in zip(test_data_list, test_data_desc):
                     
-            #     if val_data==[]:
-            #         pass
-            #     else:
-            #         if use_shoaib_code: 
-            #             LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                if val_data==[]:
+                    pass
+                else:
+                    if use_shoaib_code: 
+                        LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                         
-            #         logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
-            #         self._val(  data=check_dataset(args.data_conf),
-            #                     batch_size=args.batch_size,
-            #                     imgsz=args.img_size[0],
-            #                     half=False,
-            #                     model=model,
-            #                     single_cls=False,
-            #                     dataloader=val_data,
-            #                     save_dir=self.args.save_dir,
-            #                     plots=False,
-            #                     compute_loss=compute_loss, 
-            #                     args = args,
-            #                     phase= data_desc
-            #                     )
+                    logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
+                    self._val(  data=check_dataset(args.data_conf),
+                                batch_size=args.batch_size,
+                                imgsz=args.img_size[0],
+                                half=False,
+                                model=model,
+                                single_cls=False,
+                                dataloader=val_data,
+                                save_dir=self.args.save_dir,
+                                plots=False,
+                                compute_loss=compute_loss, 
+                                args = args,
+                                phase= data_desc
+                                )
+                    
+            _log_it(args,"Skip training for round 0")
 
-
-          
-        # %% ======================== Shoaib's part =======================================
-        args.client_data_size_org_train = len(train_data.dataset.labels)
-        args.client_data_size_org_test = len(test_data.dataset.labels)
-        args.logging = logging
-        args.flag_new_data = 0
-        if use_shoaib_code: # TODO: 
-            try:
-                train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
-            except Exception as e:
-                print(f"Some error \n\t{e}")
-                args.flag_new_data = 0
-        args.client_data_size_mod_train = len(train_data.dataset.labels)
-        # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
+        else:
+            
+            # %% ======================== Shoaib's part =======================================
+            args.client_data_size_org_train = len(train_data.dataset.labels)
+            args.client_data_size_org_test = len(test_data.dataset.labels)
+            args.logging = logging
+            args.flag_new_data = 0
+            if use_shoaib_code: # TODO: 
+                try:
+                    train_data, test_data_with_pseudo, new_test_data_gt = use_new_data(args,model,compute_loss,train_data, test_data)
+                except Exception as e:
+                    print(f"Some error \n\t{e}")
+                    args.flag_new_data = 0
+            args.client_data_size_mod_train = len(train_data.dataset.labels)
+            # if args.round_idx==1 and args.rank==args.psuedo_gen_on_clients[0]: fedml.core.mlops.mlops_profiler_event.MLOpsProfilerEvent.log_to_wandb(args.__dict__)
+            
+            
+            
+            
         
-        
-        
-        
-      
-        # %%
-        # =================================================================================
-        # ============================== Training Part ====================================
-        # =================================================================================
-        mloss = torch.zeros(3, device=device)  # mean losses
-        for epoch in range(args.epochs):
-            if args.round_idx > 0:
+            # %%
+            # =================================================================================
+            # ============================== Training Part ====================================
+            # =================================================================================
+            mloss = torch.zeros(3, device=device)  # mean losses
+            for epoch in range(args.epochs):
                 epoch_loss = []
                 model.train()
                 t = time.time()
@@ -768,7 +769,7 @@ class YOLOv5Trainer(ClientTrainer):
                     s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
                     print(s)
                     
-                args.RoundxEpoch = (args.round_idx+1) * (epoch+1)
+                args.RoundxEpoch = ( (args.round_idx-1) * (args.epochs) ) + (epoch)
                     
                     
                 # ============= Update learning rate =============
@@ -825,21 +826,6 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-                # %% ============================== Saving Weights ===================================
-                logging.info("End training on Trainer {}".format(host_id))
-                
-                model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}.pt"
-                logging.info(f"Trainer {host_id} saving model to {model_path}")
-                
-                # Old saving method     # torch.save(model.state_dict(), model_path)
-                # Modified saving method
-                ckpt = {'model': copy.deepcopy(model).half(),
-                        'optimizer': optimizer.state_dict()}
-                torch.save(ckpt, model_path)
-                del ckpt
-
-
-
 
                 # ============================== Logging Results ===================================
                 epoch_loss = np.array(epoch_loss)
@@ -860,37 +846,45 @@ class YOLOv5Trainer(ClientTrainer):
                     logging.info(f"Trainer {host_id} round {self.round_idx} finished, round loss: {self.round_loss}")
 
 
-
-            else:
-
-                if epoch==0: 
-                    _log_it(args,"Skip training for round 0")
-                    # %% =================== Validation Part - After Training ====================================
-                    test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-                    test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
-                    
-                    for val_data,data_desc in zip(test_data_list, test_data_desc):
+                # %% =================== Validation Part - After Training ====================================
+                test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+                test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
+                
+                for val_data,data_desc in zip(test_data_list, test_data_desc):
+                        
+                    if val_data==[]:
+                        pass
+                    else:
+                        if use_shoaib_code: 
+                            LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                             
-                        if val_data==[]:
-                            pass
-                        else:
-                            if use_shoaib_code: 
-                                LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
-                                
-                            logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
-                            self._val(  data=check_dataset(args.data_conf),
-                                        batch_size=args.batch_size,
-                                        imgsz=args.img_size[0],
-                                        half=False,
-                                        model=model,
-                                        single_cls=False,
-                                        dataloader=val_data,
-                                        save_dir=self.args.save_dir,
-                                        plots=False,
-                                        compute_loss=compute_loss, 
-                                        args = args,
-                                        phase= data_desc
-                                        )
+                        logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
+                        self._val(  data=check_dataset(args.data_conf),
+                                    batch_size=args.batch_size,
+                                    imgsz=args.img_size[0],
+                                    half=False,
+                                    model=model,
+                                    single_cls=False,
+                                    dataloader=val_data,
+                                    save_dir=self.args.save_dir,
+                                    plots=False,
+                                    compute_loss=compute_loss, 
+                                    args = args,
+                                    phase= data_desc
+                                    )
+
+
+
+        # %% ============================== Saving Weights ===================================
+        logging.info("End training on Trainer {}".format(host_id))
+        
+        model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}_end.pt"
+        logging.info(f"Trainer {host_id} saving model to {model_path}")
+
+        ckpt = {'model': copy.deepcopy(model).half(),
+                'optimizer': optimizer.state_dict()}
+        torch.save(ckpt, model_path)
+        del ckpt
 
 
 
