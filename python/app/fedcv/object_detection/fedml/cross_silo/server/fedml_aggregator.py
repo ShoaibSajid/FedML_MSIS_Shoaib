@@ -131,16 +131,23 @@ class FedMLAggregator(object):
                 results = self.test_on_server_for_all_clients()
                 _results = results[self.args.val_on] # Perform server evaluation on  0-Old, 1-New, 2-Merged
             _model_map.append(_results[2]) # 2-mAP50 3-mAP
+            if _idx==0: aggr_scores=_results[2]
         
-        _all_models         = _model_param  + self.old_models
-        _all_model_scores   = _model_map    + self.old_model_scores
-        
+        if self.args.keep_server_model_history:
+            _all_models         = _model_param  + self.old_models       
+            _all_model_scores   = _model_map    + self.old_model_scores 
+        else:
+            _all_models         = _model_param
+            _all_model_scores   = _model_map  
+      
+      
         # max_map = max(_model_map)
         # best_model = _model_map.index(max_map)
         max_map = max(_all_model_scores)
         best_model = _all_model_scores.index(max_map)
         
         MLOpsProfilerEvent.log_to_wandb({   f"Best_Model": best_model,
+                                            f"Model_Score": aggr_scores,
                                             f"Best_Model_Score": max_map,
                                             f"Round_No": self.args.round_idx,
                                             f"Round x Epoch": self.args.round_idx*self.args.epochs,})
@@ -159,6 +166,8 @@ class FedMLAggregator(object):
         
         self.old_models.append((0,averaged_params))
         self.old_model_scores.append(max_map)
+        # if self.args.keep_server_model_history: self.old_models       = [(0,averaged_params)]
+        # if self.args.keep_server_model_history: self.old_model_scores = max_map
         
         end_time = time.time()
         logging.info("aggregate and comparison time cost: %d" % (end_time - start_time))

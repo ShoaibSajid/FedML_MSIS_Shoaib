@@ -555,6 +555,11 @@ class YOLOv5Trainer(ClientTrainer):
         self.args = args
         self.round_loss = []
         self.round_idx = 0
+        self.ValOn = self.args.data_desc[self.args.val_on]
+        self._best_model=[]
+        self._best_model_score=[]
+        self._best_model_epochNo = 0
+        
         args.client_map50_all = dict()
         args.client_map_all   = dict()
         args.client_map50_all[args.rank]=0
@@ -699,6 +704,10 @@ class YOLOv5Trainer(ClientTrainer):
                                 phase= data_desc
                                 )
                     
+                
+            self._best_model         = copy.deepcopy(model)
+            self._best_model_score   = args.mAPs[args.client_id][self.ValOn]
+            
             args.curr_step=0
             _log_it(args,"Skip training for round 0")
 
@@ -770,7 +779,7 @@ class YOLOv5Trainer(ClientTrainer):
                     s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, args.epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
                     print(s)
                     
-                args.RoundxEpoch = ( (args.round_idx-1) * (args.epochs) ) + (epoch)
+                args.RoundxEpoch = ( (args.round_idx-1) * (args.epochs) ) + (epoch) + 1
                     
                     
                 # ============= Update learning rate =============
@@ -874,11 +883,15 @@ class YOLOv5Trainer(ClientTrainer):
                                     args = args,
                                     phase= data_desc
                                     )
-
-
+                if args.mAPs[args.client_id][self.ValOn][2] > self._best_model_score[2] and args.keep_client_model_history:
+                    self._best_model         = copy.deepcopy(model)
+                    self._best_model_score   = args.mAPs[args.client_id][self.ValOn]
+                    self._best_model_epochNo = args.RoundxEpoch
 
         # %% ============================== Saving Weights ===================================
         logging.info("End training on Trainer {}".format(host_id))
+        
+        
         
         model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}_end.pt"
         logging.info(f"Trainer {host_id} saving model to {model_path}")
@@ -887,6 +900,29 @@ class YOLOv5Trainer(ClientTrainer):
                 'self.optimizer': self.optimizer.state_dict()}
         torch.save(ckpt, model_path)
         del ckpt
+        
+    
+        if args.keep_client_model_history:
+            MLOpsProfilerEvent.log_to_wandb({
+                                            # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
+                                            f"Best_Model_in_Epoch": self._best_model_epochNo,
+                                            f"Model_Score": self._best_model_score[2],
+                                            f"Round_No": args.round_idx,
+                                            f"Round x Epoch": args.RoundxEpoch,
+                                            })
+            
+            self.set_model_params(self._best_model.state_dict())
+            args.mAPs[args.client_id][self.ValOn] = self._best_model_score
+            
+            msg = colorstr( "bright_yellow"  , "bold" , f"\n\t The best weights are given by EpochxRound {args.RoundxEpoch} with mAP: {self._best_model_score[2]}\n" )
+            print(msg)
+            model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_round_{self.round_idx}_best.pt"
+            logging.info(f"Trainer {host_id} saving model to {model_path}")
+
+            ckpt = {'model': copy.deepcopy(self._best_model).half(),
+                    'self.optimizer': self.optimizer.state_dict()}
+            torch.save(ckpt, model_path)
+            del ckpt
 
 
 
