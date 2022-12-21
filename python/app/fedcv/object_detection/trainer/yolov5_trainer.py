@@ -560,36 +560,11 @@ class YOLOv5Trainer(ClientTrainer):
         args.client_map50_all[args.rank]=0
         args.client_map_all[args.rank]=0
         self.logging = logging.getLogger("client_logger")
-
-    def get_model_params(self):
-        return self.model.cpu().state_dict()
-
-    def set_model_params(self, model_parameters):
-        logging.info("set_model_params")
-        self.model.load_state_dict(model_parameters)
-
-    def train(self, train_data, test_data, device, args):
         
-        
-        # %% =============== Logging information ==========================
-        host_id = int(list(args.client_id_list)[1])
-        args.client_id = host_id
-        logging.info("Start training on Trainer {}".format(host_id))
-        logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
-        LOGGER.info(colorstr('hyperparameters: ')+ ', '.join(f'{k}={v}' for k, v in self.hyp.items()))  ############
-        model = self.model
-        
-        
-        
-        # %% =============== Hyperparameters ==========================
-        self.round_idx = args.round_idx
-        args = self.args
         hyp = self.hyp if self.hyp else self.args.hyp
         epochs = args.epochs  # number of epochs
 
-
-
-        # %% =============== Adding parameter groups in Optimizer ==========================
+        # % =============== Adding parameter groups in Optimizer ==========================
         pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
         for k, v in model.named_modules():
             if hasattr(v, "bias") and isinstance(v.bias, nn.Parameter):
@@ -599,18 +574,18 @@ class YOLOv5Trainer(ClientTrainer):
             elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
                 pg1.append(v.weight)  # apply decay
         if args.client_optimizer == "adam":
-            optimizer = optim.Adam(pg0, lr=hyp["lr0"], betas=(hyp["momentum"], 0.999))  # adjust beta1 to momentum
+            self.optimizer = optim.Adam(pg0, lr=hyp["lr0"], betas=(hyp["momentum"], 0.999))  # adjust beta1 to momentum
         else:
-            optimizer = optim.SGD(pg0, lr=hyp["lr0"], momentum=hyp["momentum"], nesterov=True)
+            self.optimizer = optim.SGD(pg0, lr=hyp["lr0"], momentum=hyp["momentum"], nesterov=True)
 
-        optimizer.add_param_group({"params": pg1, "weight_decay": hyp["weight_decay"]})  # add pg1 with weight_decay
-        optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
+        self.optimizer.add_param_group({"params": pg1, "weight_decay": hyp["weight_decay"]})  # add pg1 with weight_decay
+        self.optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
         logging.info("Optimizer groups: %g .bias, %g conv.weight, %g other" % (len(pg2), len(pg1), len(pg0)))
         del pg0, pg1, pg2
 
 
 
-        # %% ============================= Freeze Layers ====================================
+        # % ============================= Freeze Layers ====================================
         freeze = []  # parameter names to freeze (full or partial)
         for k, v in model.named_parameters():
             v.requires_grad = True  # train all layers
@@ -620,17 +595,40 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
-        # %% =============== Define Learning Rate scheduler based on total epochs ==================
+        # % =============== Define Learning Rate scheduler based on total epochs ==================
         total_epochs = epochs * args.comm_round
-        # total_epochs = max ( 500, 300+epochs )
+        # if not args.weights == "none": total_epochs += args.last_epochs
+        if not args.weights == "none": total_epochs += 300
         lf = (lambda x: ((1 + math.cos(x * math.pi / total_epochs)) / 2) * (1 - hyp["lrf"]) + hyp["lrf"] )  # cosine
-        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
-        # scheduler = lr_scheduler.ConstantLR(optimizer, lr_lambda=lf)
-        for _i_ in tqdm(range((args.round_idx)*epochs), desc='Running for learning rate decrease', leave=True):
-            scheduler.step()
+        self.scheduler = lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lf)
+        # scheduler = lr_scheduler.ConstantLR(self.self.optimizer, lr_lambda=lf)
+        if not args.weights == "none":
+            for _i_ in tqdm(range(300), desc='Running for learning rate decrease', leave=True):
+                self.scheduler.step()
 
 
-        # %% =============== Model Loss and Move model to device ======================
+
+
+    def get_model_params(self):
+        return self.model.cpu().state_dict()
+
+    def set_model_params(self, model_parameters):
+        logging.info("set_model_params")
+        self.model.load_state_dict(model_parameters)
+
+    def train(self, train_data, test_data, device, args):
+        self.round_idx = args.round_idx
+        args = self.args
+        
+        # =============== Logging information ==========================
+        host_id = int(list(args.client_id_list)[1])
+        args.client_id = host_id
+        logging.info("Start training on Trainer {}".format(host_id))
+        logging.info(f"Hyperparameters: {self.hyp}, Args: {self.args}")
+        LOGGER.info(colorstr('hyperparameters: ')+ ', '.join(f'{k}={v}' for k, v in self.hyp.items()))  ############
+        model = self.model
+        
+        # =============== Model Loss and Move model to device ======================
         model.to(device)
         model.train()
         compute_loss = ComputeLoss(model)
@@ -674,13 +672,15 @@ class YOLOv5Trainer(ClientTrainer):
         if args.round_idx==0:
             LOGGER.info(colorstr("bright_green","bold", f"\n\tValidating before starting training.\n"))
             test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-            test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
+            test_data_desc = args.data_desc
             
+            args.mAPs=dict()
+            args.mAPs[args.client_id]=dict()
             for val_data,data_desc in zip(test_data_list, test_data_desc):
-                    
                 if val_data==[]:
                     pass
                 else:
+                    args.mAPs[args.client_id][data_desc]=dict()
                     if use_shoaib_code: 
                         LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                         
@@ -699,6 +699,7 @@ class YOLOv5Trainer(ClientTrainer):
                                 phase= data_desc
                                 )
                     
+            args.curr_step=0
             _log_it(args,"Skip training for round 0")
 
         else:
@@ -745,7 +746,7 @@ class YOLOv5Trainer(ClientTrainer):
 
 
                     # ============= Clear the previous gradient values ============
-                    optimizer.zero_grad()
+                    self.optimizer.zero_grad()
                     
                     
                     # ========================== Forward ==========================
@@ -759,14 +760,14 @@ class YOLOv5Trainer(ClientTrainer):
                     
                     
                     # ======================= Update weights =======================
-                    optimizer.step()
+                    self.optimizer.step()
                     batch_loss.append(loss.item())
 
 
                     # ====================== Calculate Losses ======================
                     mloss = (mloss * batch_idx + loss_items) / (batch_idx + 1)  # update mean losses
                     mem = "%.3gG" % (torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0)  # (GB)
-                    s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
+                    s = ("%10s" * 3 + "%10.4g" * 5) % ("%g/%g" % (epoch, args.epochs - 1), "%g/%g" % (batch_idx, total_batches - 1),mem,*mloss,targets.shape[0],imgs.shape[-1])
                     print(s)
                     
                 args.RoundxEpoch = ( (args.round_idx-1) * (args.epochs) ) + (epoch)
@@ -774,7 +775,7 @@ class YOLOv5Trainer(ClientTrainer):
                     
                 # ============= Update learning rate =============
                 logging.info(s)
-                scheduler.step()
+                self.scheduler.step()
 
 
 
@@ -791,18 +792,18 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info("#" * 200)
                 
                 MLOpsProfilerEvent.log_to_wandb({
-                                                f"client_{host_id}_round_idx":          self.round_idx,
-                                                f"client_{host_id}_train_box_loss":     np.float(mloss[0]),
-                                                f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
-                                                f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
-                                                f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
+                                                # f"client_{host_id}_round_idx":          self.round_idx,
+                                                # f"client_{host_id}_train_box_loss":     np.float(mloss[0]),
+                                                # f"client_{host_id}_train_obj_loss":     np.float(mloss[1]),
+                                                # f"client_{host_id}_train_cls_loss":     np.float(mloss[2]),
+                                                # f"client_{host_id}_train_total_loss":   np.float(mloss.sum()),
                                                 f"train_box_loss":      np.float(mloss[0]),
                                                 f"train_obj_loss":      np.float(mloss[1]),
                                                 f"train_cls_loss":      np.float(mloss[2]),
                                                 f"train_total_loss":    np.float(mloss.sum()),
                                                 f"Original Number of Training Images":       args.client_data_size_org_train,
                                                 f"Modified Number of Training Images":       args.client_data_size_mod_train,
-                                                f"Learning Rate":       scheduler.get_last_lr()[0],
+                                                f"Learning Rate":       self.scheduler.get_last_lr()[0],
                                                 f"Round_No":            args.round_idx,
                                                 f"Epoch_No":            epoch,
                                                 f"Round x Epoch":       args.RoundxEpoch,
@@ -819,7 +820,7 @@ class YOLOv5Trainer(ClientTrainer):
                     # Modified saving method
                     ckpt = {'epoch': epoch,
                             'model': copy.deepcopy(model).half(),
-                            'optimizer': optimizer.state_dict()}
+                            'self.optimizer': self.optimizer.state_dict()}
                     torch.save(ckpt, model_path)
                     del ckpt
 
@@ -848,13 +849,14 @@ class YOLOv5Trainer(ClientTrainer):
 
                 # %% =================== Validation Part - After Training ====================================
                 test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-                test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
-                
+                test_data_desc = args.data_desc
+                args.mAPs=dict()
+                args.mAPs[args.client_id]=dict()
                 for val_data,data_desc in zip(test_data_list, test_data_desc):
-                        
                     if val_data==[]:
                         pass
                     else:
+                        args.mAPs[args.client_id][data_desc]=dict()
                         if use_shoaib_code: 
                             LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                             
@@ -882,7 +884,7 @@ class YOLOv5Trainer(ClientTrainer):
         logging.info(f"Trainer {host_id} saving model to {model_path}")
 
         ckpt = {'model': copy.deepcopy(model).half(),
-                'optimizer': optimizer.state_dict()}
+                'self.optimizer': self.optimizer.state_dict()}
         torch.save(ckpt, model_path)
         del ckpt
 
@@ -924,7 +926,7 @@ class YOLOv5Trainer(ClientTrainer):
                                     save_dir = save_dir,
                                     plots = plots,
                                     compute_loss = compute_loss,)
-        
+        args.mAPs[args.client_id][phase] = results
         names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
         for _idx, _ap50 in enumerate(ap50):
             MLOpsProfilerEvent.log_to_wandb({

@@ -4,6 +4,7 @@ common_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
+  # name: "Train_BDD20kGT_50E" # yolo
   name: "Train_BDD20kGT_Waymo5k_GT_10EpR" # yolo
   project: "runs/train" # yolo
   exist_ok: true # yolo
@@ -67,7 +68,7 @@ model_args:
   yolo_cfg: "./model/yolov5/models/yolov5m.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
-  weights: "none" #"/home/shoaib/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best_by_zafar_bdd3class_300.pt" #"best.pt" #"none" # "best.pt" # yolo
+  weights: "/home/shoaib/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/runs/train/Train_BDD20kGT_50E/weights/aggr_model_13.pt" #"none" #"/home/shoaib/FedML_MSIS_Shoaib/python/app/fedcv/object_detection/best_by_zafar_bdd3class_300.pt" #"best.pt" #"none" # "best.pt" # yolo
   single_cls: false # yolo
   conf_thres: 0.001 # yolo
   iou_thres: 0.6 # for yolo NMS
@@ -108,8 +109,10 @@ new_data_args:
 
   # run_name: "Train_3C_30EpR_BDD35k_Waymo5k-GT"
   run_name: "Train_BDD20kGT_Waymo5k_GT_10EpR"
+  # run_name: "Train_BDD20kGT_50E"
 
   # Variable Initialization
   RoundxEpoch: 0
   test_dataloader_new: []
   test_dataloader_merged: []
+  data_desc: ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]

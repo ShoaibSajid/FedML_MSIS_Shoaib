@@ -45,7 +45,7 @@ class YOLOAggregator(ServerAggregator):
     def test_all_val_datasets(self, test_data, device, args):
         
         test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-        test_data_desc = ["After_Training_" ,"After_Training_New_TestD_"    ,"After_Training_Merged_TestD_" ]
+        test_data_desc = args.data_desc
     
         results = []
         for val_data,data_desc in zip(test_data_list, test_data_desc):
@@ -96,10 +96,11 @@ class YOLOAggregator(ServerAggregator):
         names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
 
         # phase = [data_desc] if data_desc=="After_Training_" else ["Before_Training_", "After_Training_"]
-        phase = [args._model_desc+'_'+data_desc] 
+        # phase = [args._model_desc+'_'+data_desc] 
+        phase = [data_desc] 
         #return results, maps
         for _phase in phase:
-            _phase="OnServer/"+_phase
+            # _phase="OnServer/"+_phase
             MLOpsProfilerEvent.log_to_wandb({
                     f"{_phase}mean_precision": np.float(results[0]),
                     f"{_phase}mean_recall": np.float(results[1]),
