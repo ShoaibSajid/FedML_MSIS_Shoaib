@@ -874,7 +874,7 @@ def merge_data_files(args, dl1, dl2):
     return tmp_file
 
         
-def partition_data_custom(data_path,total_num=[],shuffle=True):
+def partition_data_custom(data_path,total_num=[],shuffle=True,_start_id=[]):
     if os.path.isfile(data_path):
         with open(data_path) as f:
             data = sorted(f.readlines())
@@ -883,11 +883,11 @@ def partition_data_custom(data_path,total_num=[],shuffle=True):
         n_data = len(os.listdir(data_path))
     if total_num==[]:
         total_num = n_data
-    if shuffle:
+    if shuffle and _start_id==[]:
         idxs = np.random.permutation(total_num)
     else:
         idxs    = np.random.permutation(n_data-total_num)
-        _start  = idxs[np.random.permutation(total_num)[0]]
+        _start  = idxs[np.random.permutation(total_num)[0]] if _start_id==[] else _start_id
         _idxs   = [] 
         for i in range(_start,_start+total_num):
             _idxs.append(i)
@@ -992,7 +992,7 @@ def load_partition_data_coco(args, hyp, model):
 
     # Test data from new dataset
     if args.generate_validation_pseudos:
-        net_dataidx_map_test_new= partition_data_custom(check_dataset(args.new_data_conf)['val'],total_num=args.new_data_num_images_test)
+        net_dataidx_map_test_new= partition_data_custom(check_dataset(args.new_data_conf)['val'],total_num=args.new_data_num_images_test, _start_id=args.start_id_test)
         new_test_dataloader_gt  = create_dataloader(check_dataset(args.new_data_conf)['val'],
                                                     imgsz_test,
                                                     total_batch_size,
