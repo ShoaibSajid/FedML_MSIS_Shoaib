@@ -973,8 +973,8 @@ class YOLOv5Trainer(ClientTrainer):
                                             })
         
         
-        args.client_map50_all[host_id]  = np.float(results[2])
-        args.client_map_all[host_id]    = np.float(results[3])
+        if args.data_desc[args.val_on] == phase: args.client_map50_all[host_id]  = np.float(results[2])
+        if args.data_desc[args.val_on] == phase: args.client_map_all[host_id]    = np.float(results[3])
         
         MLOpsProfilerEvent.log_to_wandb(
                 {
