@@ -148,6 +148,7 @@ def init_yolo(args, device="cpu"):
                 state_dict = ckpt["model"].float().state_dict()  # to FP32
                 state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
                 model.load_state_dict(state_dict, strict=False)  # load
+                args.last_epochs=ckpt["epoch"]
             except:
                 try:
                     state_dict = ckpt.float().state_dict()  # to FP32
