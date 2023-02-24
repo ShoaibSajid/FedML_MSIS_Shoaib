@@ -5,7 +5,8 @@ path: ../../
 train: ../../../../3class_bdd_cleaned/train_20k.txt
 # train: ../../../../3class_bdd/train50.txt
 # train: ../../../../3class_bdd/train_10K.txt  
-val: ../../../../3class_bdd_cleaned/val.txt
+# val: ../../../../3class_bdd_cleaned/val.txt
+val: ../../../../3class_bdd_cleaned/val_zafar.txt
 # val: ../../../../3class_bdd/val50.txt
 # val: ../../../../3class_bdd/val_1K.txt
 test: ../../../../3class_bdd_cleaned/val.txt
