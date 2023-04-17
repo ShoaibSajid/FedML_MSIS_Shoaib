@@ -162,8 +162,8 @@ def manage_profiling_args(args):
                     "config": args,
                 }
 
-            if hasattr(args, "run_name"):
-                wandb_args["name"] = args.run_name
+            if hasattr(args, "name"):
+                wandb_args["name"] = args.name
 
             if hasattr(args, "wandb_group_id"):
                 # wandb_args["group"] = args.wandb_group_id

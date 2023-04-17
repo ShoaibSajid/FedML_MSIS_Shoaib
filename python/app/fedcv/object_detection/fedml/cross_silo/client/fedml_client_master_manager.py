@@ -5,6 +5,8 @@ import time
 
 import torch.distributed as dist
 
+from model.yolov5.utils.general import LOGGER, colorstr
+
 from fedml import mlops
 from fedml.constants import FEDML_CROSS_SILO_SCENARIO_HIERARCHICAL
 from .message_define import MyMessage
@@ -88,7 +90,17 @@ class ClientMasterManager(FedMLCommManager):
 
         self.trainer_dist_adapter.update_dataset(int(client_index))
         logging.info("current roundx {}, num rounds {}".format(self.round_idx, self.num_rounds))
+        
+        #TODO: Added by Shoaib - Don't update the model parameters
+    
+        # if self.args.use_update_from_server:
+        #     LOGGER.info(colorstr("bright_green","bold", f"\n\tServer is updating the client model.\n"))
+        #     self.trainer_dist_adapter.update_model(model_params)
+        # else:
+        #     LOGGER.info(colorstr("bright_red","bold", f"\n\tServer is NOT updating the client model weights. Continuing with old weights.\n"))
+            
         self.trainer_dist_adapter.update_model(model_params)
+        
         if self.round_idx == self.num_rounds-1:
             mlops.log_training_finished_status()
             return
@@ -108,7 +120,8 @@ class ClientMasterManager(FedMLCommManager):
         mlops.event("comm_c2s", event_started=True, event_value=str(self.round_idx))
         message = Message(MyMessage.MSG_TYPE_C2S_SEND_MODEL_TO_SERVER, self.client_real_id, receive_id,)
         message.add_params(MyMessage.MSG_ARG_KEY_MODEL_PARAMS, weights)
-        message.add_params(MyMessage.MSG_CLIENT_MAP, self.args.mAPs)
+        if self.args.ValClientsOnServer: LOGGER.info(colorstr("bright_green","bold", f"\tClient is not sending mAP scores to server.\n"))
+        else: message.add_params(MyMessage.MSG_CLIENT_MAP, self.args.mAPs)
         message.add_params(MyMessage.MSG_ARG_KEY_NUM_SAMPLES, local_sample_num)
         self.send_message(message)
 

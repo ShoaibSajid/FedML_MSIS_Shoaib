@@ -113,38 +113,55 @@ class FedMLAggregator(object):
 
         # self.set_global_model_params(averaged_params)
         
-        if self.args.use_best_from_server_clients:
-            ValOn = self.args.data_desc[self.args.val_on]
-            _model_param = [(0,averaged_params)]+model_list
-            _model_map = []
-            for _idx, (_,_param) in enumerate(_model_param):
-                _results = []
-                self.args._model_idx  = _idx
-                self.args._model_desc = "Server" if _idx==0 else f"Client_{_idx}"
+        ValOn = self.args.data_desc[self.args.val_on]
+        _model_param = [(0,averaged_params)]+model_list
+        _model_map = []
+        for _idx, (_,_param) in enumerate(_model_param):
+            _results = []
+            self.args._model_idx  = _idx
+            self.args._model_desc = "Server" if _idx==0 else f"Client_{_idx}"
+            if self.args.ValClientsOnServer:
+                LOGGER.info(colorstr("bright_green","bold", f"\t{self.args._model_desc} will be evaluated on {ValOn} by the server."))
+            else:
                 if (_idx-1) in self.mAPs.keys():
                     _kkey = list(self.mAPs[_idx-1].keys())[0]
                     if ValOn in self.mAPs[_idx-1][_kkey]:
                         LOGGER.info(colorstr( "bright_green"  , "bold" , f"\n\n\t{self.args._model_desc} results for {ValOn} dataset already exist." ))
                         _results = self.mAPs[_idx-1][_kkey][ValOn]
-                if _results == []:
-                    self.set_global_model_params(_param)
-                    results = self.test_on_server_for_all_clients()
-                    _results = results[self.args.val_on] # Perform server evaluation on  0-Old, 1-New, 2-Merged
-                _model_map.append(_results[2]) # 2-mAP50 3-mAP
-                if _idx==0: aggr_scores=_results[2]
+            if _results == []:
+                self.set_global_model_params(_param)
+                results = self.test_on_server_for_all_clients()
+                _results = results[self.args.val_on] # Perform server evaluation on  0-Old, 1-New, 2-Merged
+            _model_map.append(_results[2]) # 2-mAP50 3-mAP
+            if _idx==0: aggr_scores=_results[2]
+        
+        
+        
+        if self.args.keep_server_model_history:
+            _all_models         = _model_param  + self.old_models       
+            _all_model_scores   = _model_map    + self.old_model_scores 
+        else:
+            _all_models         = _model_param
+            _all_model_scores   = _model_map  
+    
+    
+    
+        # max_map = max(_model_map)
+        # best_model = _model_map.index(max_map)
+        max_map = max(_all_model_scores)
+        best_model = _all_model_scores.index(max_map)
             
-            if self.args.keep_server_model_history:
-                _all_models         = _model_param  + self.old_models       
-                _all_model_scores   = _model_map    + self.old_model_scores 
-            else:
-                _all_models         = _model_param
-                _all_model_scores   = _model_map  
-        
-        
-            # max_map = max(_model_map)
-            # best_model = _model_map.index(max_map)
-            max_map = max(_all_model_scores)
-            best_model = _all_model_scores.index(max_map)
+            
+            
+        if self.args.use_best_from_server_clients:
+            averaged_params = copy.deepcopy(_all_models[best_model][1])
+            self.set_global_model_params(averaged_params)
+            self.old_models.append((0,averaged_params))
+            self.old_model_scores.append(max_map)
+            
+            if best_model>(len(_model_map)-1): WhoGaveWeights=f"Round {best_model}"
+            else: WhoGaveWeights = 'Server' if best_model==0 else f'Client_{best_model}'
+            LOGGER.info(colorstr( "bright_yellow"  , "bold" , f"\n\t The best weights are given by {WhoGaveWeights} with mAP: {max_map}\n" ))
             
             MLOpsProfilerEvent.log_to_wandb({   f"Best_Model": best_model,
                                                 f"Aggregated_Model_Score": aggr_scores,
@@ -152,29 +169,20 @@ class FedMLAggregator(object):
                                                 f"Round_No": self.args.round_idx,
                                                 f"Round x Epoch": self.args.round_idx*self.args.epochs,})
             
-            if best_model>(len(_model_map)-1):
-                # best_model-=len(_model_map)
-                WhoGaveWeights=f"Round {best_model}"
-            else:
-                WhoGaveWeights = 'Server' if best_model==0 else f'Client_{best_model}'
-                
-            msg = colorstr( "bright_yellow"  , "bold" , f"\n\t The best weights are given by {WhoGaveWeights} with mAP: {max_map}\n" )
-            LOGGER.info(msg)
+
+
             
-            averaged_params = copy.deepcopy(_all_models[best_model][1])
-            self.set_global_model_params(averaged_params)
+        # else:
+        #     msg = colorstr( "bright_yellow"  , "bold" , f"\n\tAggregator is using averaged parameters.\n" )
+        #     LOGGER.info(msg)
             
-            self.old_models.append((0,averaged_params))
-            self.old_model_scores.append(max_map)
-            
-        else:
-            self.set_global_model_params(averaged_params)
-            self.args._model_idx  = 0
-            self.args._model_desc = "Server" 
-            ValOn = self.args.data_desc[self.args.val_on]
-            results = self.test_on_server_for_all_clients()
-            _results = results[self.args.val_on] # Perform server evaluation on  0-Old, 1-New, 2-Merged
-            aggr_scores=_results[2]
+        #     self.set_global_model_params(averaged_params)
+        #     self.args._model_idx  = 0
+        #     self.args._model_desc = "Server" 
+        #     ValOn = self.args.data_desc[self.args.val_on]
+        #     results = self.test_on_server_for_all_clients()
+        #     _results = results[self.args.val_on] # Perform server evaluation on  0-Old, 1-New, 2-Merged
+        #     aggr_scores=_results[2]
             
         # if self.args.keep_server_model_history: self.old_models       = [(0,averaged_params)]
         # if self.args.keep_server_model_history: self.old_model_scores = max_map

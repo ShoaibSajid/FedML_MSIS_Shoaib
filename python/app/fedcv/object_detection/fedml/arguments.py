@@ -40,6 +40,14 @@ def add_args():
         type=str,
         default="",
     )
+    
+    parser.add_argument(
+        "--client_config_file",
+        "--ccf",
+        help="yaml configuration file",
+        type=str,
+        default="",
+    )
 
     # default arguments
     parser.add_argument("--run_id", type=str, default="0")
@@ -124,6 +132,11 @@ class Arguments:
 
         # Override class attributes from current yaml config
         self.set_attr_from_config(configuration)
+        
+        # Load seperate files for each client if available
+        if not cmd_args.client_config_file=='':
+            configuration_client = self.load_yaml_config(cmd_args.client_config_file)
+            self.set_attr_from_config(configuration_client)
 
         if cmd_args.yaml_config_file == "":
             path_current_file = path.abspath(path.dirname(__file__))

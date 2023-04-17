@@ -560,6 +560,8 @@ class YOLOv5Trainer(ClientTrainer):
         self._best_model_score=[]
         self._best_model_epochNo = 0
         
+        self.last_model_state = None
+        
         args.client_map50_all = dict()
         args.client_map_all   = dict()
         args.client_map50_all[args.rank]=0
@@ -614,6 +616,9 @@ class YOLOv5Trainer(ClientTrainer):
 
 
 
+    def get_model_params_gpu(self):
+        return self.model.state_dict()
+    
     def get_model_params(self):
         return self.model.cpu().state_dict()
 
@@ -711,7 +716,13 @@ class YOLOv5Trainer(ClientTrainer):
             args.curr_step=0
             _log_it(args,"Skip training for round 0")
 
-        else:
+        else: # After Round 0
+                
+            if not args.use_update_from_server:
+                LOGGER.info(colorstr("bright_green","bold", f"\n\tServer is NOT updating the client model weights. Using the model from last epoch.\n"))
+                self.set_model_params(self.last_model_state)
+            else:
+                LOGGER.info(colorstr("bright_green","bold", f"\tR:{self.round_idx} - Server is updating the client model.\n"))
             
             # %% ======================== Shoaib's part =======================================
             args.client_data_size_org_train = len(train_data.dataset.labels)
@@ -744,7 +755,7 @@ class YOLOv5Trainer(ClientTrainer):
                 logging.info("\tTrainer_ID: {0}, Epoch: {1}".format(host_id, epoch))
                 
                 if use_shoaib_code: 
-                    LOGGER.info(colorstr("bright_green","bold", f"\n\tTraining on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
+                    LOGGER.info(colorstr("bright_green","bold", f"\n\tR:{self.round_idx} - Training on {args.client_data_size_mod_train} images. Original training data is {args.client_data_size_org_train} for client {args.client_id}.\n"))
                 
                 logging.info(("%10s" * 8) % ("Epoch", "batch", "gpu_mem", "box", "obj", "cls", "targets", "img_size"))
                 total_batches = train_data.batch_sampler.sampler.sampler.data_source.batch_shapes.shape[0]
@@ -780,7 +791,10 @@ class YOLOv5Trainer(ClientTrainer):
                     print(s)
                     
                 args.RoundxEpoch = ( (args.round_idx-1) * (args.epochs) ) + (epoch) + 1
-                    
+                
+            
+                # self.last_model_state = copy.deepcopy(model)    
+                self.last_model_state = self.get_model_params_gpu()    
                     
                 # ============= Update learning rate =============
                 logging.info(s)
@@ -857,61 +871,76 @@ class YOLOv5Trainer(ClientTrainer):
 
 
                 # %% =================== Validation Part - After Training ====================================
-                test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-                test_data_desc = args.data_desc
-                args.mAPs=dict()
-                args.mAPs[args.client_id]=dict()
-                for val_data,data_desc in zip(test_data_list, test_data_desc):
-                    if val_data==[]:
-                        pass
-                    else:
-                        args.mAPs[args.client_id][data_desc]=dict()
-                        if use_shoaib_code: 
-                            LOGGER.info(colorstr("bright_green","bold", f"\tValidating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                if args.ValClientsOnServer:
+                    LOGGER.info(colorstr("bright_red","bold", f"\tR/E: {self.round_idx}/{epoch} - Client model will be evaluated only on Server.\n"))
+                
+                else:
+                    test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
+                    test_data_desc = args.data_desc
+                    args.mAPs=dict()
+                    args.mAPs[args.client_id]=dict()
+                    for val_data,data_desc in zip(test_data_list, test_data_desc):
+                        if val_data==[]:
+                            pass
+                        else:
+                            args.mAPs[args.client_id][data_desc]=dict()
+                            if use_shoaib_code: 
+                                LOGGER.info(colorstr("bright_green","bold", f"\tR/E: {self.round_idx}/{epoch} - Validating on {len(val_data.dataset.labels)} images {data_desc} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                                
+                            logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
+                            self._val(  data=check_dataset(args.data_conf),
+                                        batch_size=args.batch_size,
+                                        imgsz=args.img_size[0],
+                                        half=False,
+                                        model=model,
+                                        single_cls=False,
+                                        dataloader=val_data,
+                                        save_dir=self.args.save_dir,
+                                        plots=False,
+                                        compute_loss=compute_loss, 
+                                        args = args,
+                                        phase= data_desc,
+                                        )
+                                        # conf_thres=0.20,
+                    if args.keep_client_model_history:   
+                                 
+                        if args.mAPs[args.client_id][self.ValOn][2] > self._best_model_score[2]:
+                            self._best_model         = copy.deepcopy(model)
+                            self._best_model_score   = args.mAPs[args.client_id][self.ValOn]
+                            self._best_model_epochNo = args.RoundxEpoch
                             
-                        logging.info(f"Start val on Trainer {host_id} using {val_data.dataset.path}")
-                        self._val(  data=check_dataset(args.data_conf),
-                                    batch_size=args.batch_size,
-                                    imgsz=args.img_size[0],
-                                    half=False,
-                                    model=model,
-                                    single_cls=False,
-                                    dataloader=val_data,
-                                    save_dir=self.args.save_dir,
-                                    plots=False,
-                                    compute_loss=compute_loss, 
-                                    args = args,
-                                    phase= data_desc,
-                                    )
-                                    # conf_thres=0.20,
-                if args.mAPs[args.client_id][self.ValOn][2] > self._best_model_score[2]:
-                    self._best_model         = copy.deepcopy(model)
-                    self._best_model_score   = args.mAPs[args.client_id][self.ValOn]
-                    self._best_model_epochNo = args.RoundxEpoch
-                    
-                    msg = colorstr( "bright_yellow"  , "bold" , f"\n\t The best weights are given by EpochxRound {args.RoundxEpoch} with mAP: {self._best_model_score[2]}\n" )
-                    print(msg)
-                    model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_best.pt"
-                    logging.info(f"Trainer {host_id} saving model to {model_path}")
+                            msg = colorstr( "bright_yellow"  , "bold" , f"\n\t The best weights are given by EpochxRound {args.RoundxEpoch} with mAP: {self._best_model_score[2]}\n" )
+                            print(msg)
+                            model_path = self.args.save_dir / "weights" / f"model_client_{host_id}_best.pt"
+                            logging.info(f"Trainer {host_id} saving model to {model_path}")
 
-                    ckpt = {'model': copy.deepcopy(self._best_model).half(),
-                            'self.optimizer': self.optimizer.state_dict()}
-                    torch.save(ckpt, model_path)
-           
-        # %%
-        MLOpsProfilerEvent.log_to_wandb({
-                                        # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
-                                        f"Best_Model_in_Epoch": self._best_model_epochNo,
-                                        f"Model_Score": self._best_model_score[2],
-                                        f"Round_No": args.round_idx,
-                                        f"Round x Epoch": args.RoundxEpoch,
-                                        })
+                            ckpt = {'model': copy.deepcopy(self._best_model).half(),
+                                    'self.optimizer': self.optimizer.state_dict()}
+                            torch.save(ckpt, model_path)
+                            del ckpt
+                    
+                
+            
         
-        if args.keep_client_model_history:            
+        
+        if args.keep_client_model_history and not args.ValClientsOnServer:            
             self.set_model_params(self._best_model.state_dict())
             args.mAPs[args.client_id][self.ValOn] = self._best_model_score            
-            del ckpt
 
+            # %%
+            MLOpsProfilerEvent.log_to_wandb({
+                                            # f"client_{device.index}_{names[_idx]}_class_ap@50":_ap50 ),
+                                            f"Best_Model_in_Epoch": self._best_model_epochNo,
+                                            f"Best_Model_in_Epoch_Model_Score": self._best_model_score[2],
+                                            f"Round_No": args.round_idx,
+                                            f"Round x Epoch": args.RoundxEpoch,
+                                            })
+            
+            
+            
+            
+            
+            
         # %% ============================== Saving Weights ===================================
         logging.info("End training on Trainer {}".format(host_id))
         
@@ -923,8 +952,9 @@ class YOLOv5Trainer(ClientTrainer):
         torch.save(ckpt, model_path)
         del ckpt
         
-    
-
+        
+        # self.last_model_state = copy.deepcopy(model)
+        self.last_model_state = self.get_model_params_gpu()   
 
 
         # %% ========================= End Trainer Function ===================================

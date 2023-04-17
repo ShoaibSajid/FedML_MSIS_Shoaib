@@ -45,7 +45,7 @@ class YOLOAggregator(ServerAggregator):
     def test_all_val_datasets(self, test_data, device, args):
         
         test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
-        test_data_desc = args.data_desc
+        test_data_desc = args.data_desc  
     
         results = []
         for val_data,data_desc in zip(test_data_list, test_data_desc):
@@ -54,12 +54,12 @@ class YOLOAggregator(ServerAggregator):
                 pass
             else:
                 logging.info(colorstr("bright_green","bold", \
-                    f"\tValidating on {len(val_data.dataset.labels)} images {' '.join(data_desc.split('_'))} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
+                    f"\n\tValidating on {len(val_data.dataset.labels)} images {' '.join(data_desc.split('_'))} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                     
-                logging.info(f"\tStart val on Server using {val_data.dataset.path}")
+                logging.info(f"\n\tStart val on Server using {val_data.dataset.path}")
                 
                 logging.info(colorstr("bright_yellow","bold", \
-                    f"\t{args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}\n"))
+                    f"\n\t{args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}\n"))
                 
                 _results = self._val(val_data, device, args, data_desc)
                 results.append(_results)
@@ -80,7 +80,7 @@ class YOLOAggregator(ServerAggregator):
         half, single_cls, plots = False, False, False
         host_id = int(list(args.client_id_list)[1])
         logging.info(f"\n\t#########################| {args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}|############################\n")
-
+        results = []
         results, maps, _, ap50 = validate.run(data=data_dict,
                                         batch_size=args.batch_size,
                                         imgsz=args.img_size[0],
@@ -97,7 +97,10 @@ class YOLOAggregator(ServerAggregator):
 
         # phase = [data_desc] if data_desc=="After_Training_" else ["Before_Training_", "After_Training_"]
         # phase = [args._model_desc+'_'+data_desc] 
-        phase = [data_desc] 
+        if args.ValClientsOnServer:
+            phase = [data_desc, args._model_desc+'_'+data_desc] 
+        else:
+            phase = [data_desc] 
         #return results, maps
         for _phase in phase:
             # _phase="OnServer/"+_phase

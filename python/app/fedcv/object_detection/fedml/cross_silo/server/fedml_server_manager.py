@@ -4,6 +4,8 @@ import time
 
 from fedml import mlops
 
+from model.yolov5.utils.general import (LOGGER, colorstr)
+
 from .message_define import MyMessage
 from ...core.distributed.communication.message import Message
 from ...core.distributed.fedml_comm_manager import FedMLCommManager
@@ -153,6 +155,7 @@ class FedMLServerManager(FedMLCommManager):
                 else:
                     self.send_message_sync_model_to_client(receiver_id, global_model_params, client_index,)
                 client_idx_in_this_round += 1
+
 
             self.args.round_idx += 1
             if self.args.round_idx == self.round_num:

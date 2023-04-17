@@ -946,6 +946,7 @@ def load_partition_data_coco(args, hyp, model):
                                         pad=0.5,
                                         net_dataidx_map=net_dataidx_map_test[0],
                                         workers=args.worker_num,
+                                        cache=args.cache_test_data
                                   )[0]
          
     test_data_num = test_dataloader_global.dataset.data_size  
@@ -980,6 +981,7 @@ def load_partition_data_coco(args, hyp, model):
             augment=True,
             net_dataidx_map=net_dataidx_map_train[0] if args.use_same_training_on_all_clients else net_dataidx_map_train[args.rank-1] ,
             workers=args.worker_num,
+            cache=args.cache_train_data,
         )
         train_dataset_dict[client_idx] = dataset
         train_data_num_dict[client_idx] = len(dataset)
@@ -991,7 +993,7 @@ def load_partition_data_coco(args, hyp, model):
     
 
     # Test data from new dataset
-    if args.generate_validation_pseudos:
+    if args.use_new_test_dataset:
         net_dataidx_map_test_new= partition_data_custom(check_dataset(args.new_data_conf)['val'],total_num=args.new_data_num_images_test, _start_id=args.start_id_test)
         new_test_dataloader_gt  = create_dataloader(check_dataset(args.new_data_conf)['val'],
                                                     imgsz_test,
@@ -1004,6 +1006,7 @@ def load_partition_data_coco(args, hyp, model):
                                                     pad=0.5,
                                                     net_dataidx_map=net_dataidx_map_test_new[0],
                                                     workers=args.worker_num,
+                                                    cache=args.cache_test_data,
                                                     )[0]
         args.test_dataloader_new =    new_test_dataloader_gt
         
@@ -1023,6 +1026,7 @@ def load_partition_data_coco(args, hyp, model):
                                                 pad=0.5,
                                                 net_dataidx_map=net_dataidx_map_merged[0],
                                                 workers=args.worker_num,
+                                                cache=args.cache_test_data,
                                                 )[0]
         args.test_dataloader_merged = merged_testloader       
     
