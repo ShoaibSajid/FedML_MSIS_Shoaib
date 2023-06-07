@@ -108,6 +108,7 @@ def init_yolo(args, device="cpu"):
     fh = logging.FileHandler(os.path.join(args.save_dir, f"log_{args.process_id}.txt"))
     fh.setLevel(logging.INFO)
     logging.getLogger().addHandler(fh)
+    _logging = logging.getLogger("client_logger")
 
     args.last, args.best, args.results_file = last, best, results_file
 
@@ -161,7 +162,7 @@ def init_yolo(args, device="cpu"):
                         model.load_state_dict(state_dict, strict=False)  # load
                     except Exception as e:
                         print(f"Some error causing weights to be loaded. {e}")
-            logging.info(
+            _logging.info(
                 "Transferred %g/%g items from %s"
                 % (len(state_dict), len(model.state_dict()), weights)
             )  # report
@@ -202,7 +203,7 @@ def init_yolo(args, device="cpu"):
                 state_dict, model.state_dict(), exclude=exclude
             )  # intersect
             model.load_state_dict(state_dict, strict=False)  # load
-            logging.info(
+            _logging.info(
                 "Transferred %g/%g items from %s"
                 % (len(state_dict), len(model.state_dict()), weights)
             )  # report
@@ -248,9 +249,9 @@ def init_yolo(args, device="cpu"):
     # Save run settings
     with open(save_dir / "hyp.yaml", "w") as f:
         yaml.dump(hyp, f, sort_keys=False)
-    # with open(save_dir / "opt.yaml", "w") as f:
-    #     # save args as yaml
-    #     yaml.dump(args.__dict__, f, sort_keys=False)
+    with open(save_dir / "opt.yaml", "w") as f:
+        # save args as yaml
+        yaml.dump(args.__dict__, f, sort_keys=False)
 
     args.hyp = hyp  # add hyperparameters
     args.wandb = wandb

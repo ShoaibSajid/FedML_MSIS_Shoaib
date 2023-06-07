@@ -1,3 +1,7 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
+import traceback
 import json
 import logging
 import platform
@@ -160,7 +164,10 @@ class ClientMasterManager(FedMLCommManager):
 
         mlops.event("train", event_started=True, event_value=str(self.round_idx))
 
-        weights, local_sample_num = self.trainer_dist_adapter.train(self.round_idx)
+        try:
+            weights, local_sample_num = self.trainer_dist_adapter.train(self.round_idx)
+        except Exception:
+            print(traceback.format_exc())
 
         mlops.event("train", event_started=False, event_value=str(self.round_idx))
 

@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import logging
 import random
 import time
@@ -25,6 +28,7 @@ class FedMLAggregator(object):
             args,
             server_aggregator,
     ):
+        self.logging = logging.getLogger("client_logger")
         self.aggregator = server_aggregator
         
         self.mAPs=dict()
@@ -46,7 +50,7 @@ class FedMLAggregator(object):
         self.client_num = client_num
         self.device = device
         self.args.device = device
-        logging.info("self.device = {}".format(self.device))
+        self.logging.info("self.device = {}".format(self.device))
         self.model_dict = dict()
         self.sample_num_dict = dict()
         self.flag_client_model_uploaded_dict = dict()
@@ -60,7 +64,7 @@ class FedMLAggregator(object):
         self.aggregator.set_model_params(model_parameters)
 
     def add_local_trained_result(self, index, model_params, sample_num):
-        logging.info("add_model. index = %d" % index)
+        self.logging.info("add_model. index = %d" % index)
 
         # for dictionary model_params, we let the user level code to control the device
         if type(model_params) is not dict:
@@ -74,14 +78,14 @@ class FedMLAggregator(object):
     
         
     def add_local_trained_mAPs(self, index, mAPs):
-        logging.info("Add mAPs. index = %d" % index)
+        self.logging.info("Add mAPs. index = %d" % index)
         self.mAPs[index] = mAPs
 
 
 
     def check_whether_all_receive(self):
         print("Check")
-        logging.debug("client_num = {}".format(self.client_num))
+        self.logging.debug("client_num = {}".format(self.client_num))
         for idx in range(self.client_num):
             if not self.flag_client_model_uploaded_dict[idx]:
                 return False
@@ -188,7 +192,7 @@ class FedMLAggregator(object):
         # if self.args.keep_server_model_history: self.old_model_scores = max_map
         
         end_time = time.time()
-        logging.info("aggregate and comparison time cost: %d" % (end_time - start_time))
+        self.logging.info("aggregate and comparison time cost: %d" % (end_time - start_time))
         self.aggregator.test_all(self.args) #FIXME: Save Weights
         return averaged_params
 
@@ -210,7 +214,7 @@ class FedMLAggregator(object):
         self.set_global_model_params(averaged_params)
 
         end_time = time.time()
-        logging.info("aggregate time cost: %d" % (end_time - start_time))
+        self.logging.info("aggregate time cost: %d" % (end_time - start_time))
         return averaged_params
 
     def data_silo_selection(self, round_idx, client_num_in_total, client_num_per_round):
@@ -227,7 +231,7 @@ class FedMLAggregator(object):
                                         this value is the form of [0, 11, 20]
 
         """
-        logging.info(
+        self.logging.info(
             "client_num_in_total = %d, client_num_per_round = %d" % (client_num_in_total, client_num_per_round)
         )
         assert client_num_in_total >= client_num_per_round
@@ -264,7 +268,7 @@ class FedMLAggregator(object):
             num_clients = min(client_num_per_round, client_num_in_total)
             np.random.seed(round_idx)  # make sure for each comparison, we are selecting the same clients each round
             client_indexes = np.random.choice(range(client_num_in_total), num_clients, replace=False)
-        logging.info("client_indexes = %s" % str(client_indexes))
+        self.logging.info("client_indexes = %s" % str(client_indexes))
         return client_indexes
 
     def _generate_validation_set(self, num_samples=10000):
@@ -278,7 +282,7 @@ class FedMLAggregator(object):
             return self.test_global
 
     def test_on_server_for_all_clients(self):
-        # logging.info("\t################test_on_server: {}".format(self.args.round_idx))
+        # self.logging.info("\t################test_on_server: {}".format(self.args.round_idx))
         results = self.aggregator.test_all_val_datasets(self.test_global, self.device, self.args)
         # self.aggregator.test_all(self.train_data_local_dict, self.test_data_local_dict, self.device, self.args,) #FIXME: Save Weights
         return results

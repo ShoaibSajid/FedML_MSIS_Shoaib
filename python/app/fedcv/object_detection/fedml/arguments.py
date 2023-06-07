@@ -173,6 +173,7 @@ class Arguments:
                     extra_config_path = self.server_config_path
                 else:
                     extra_config_path = self.client_silo_config_paths[self.rank - 1]
+                    self.name = self.name+"f--C{self.rank}"
                 extra_config = self.load_yaml_config(extra_config_path)
                 self.set_attr_from_config(extra_config)
 

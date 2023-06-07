@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import time
 
 from fedml.data import split_data_for_dist_trainers

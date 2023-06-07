@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import copy
 import logging
 import os
@@ -29,20 +32,22 @@ def _log_it(args,msg):
             colorstr( args.color_str  , "bold" , str(msg)                        )+\
             "\n"
     LOGGER.info(msg)
-    # args.logging.info(msg)
+    # args.self.logging.info(msg)
         
 class YOLOAggregator(ServerAggregator):
     def get_model_params(self):
         return self.model.cpu().state_dict()
 
     def set_model_params(self, model_parameters):
-        logging.info("set_model_params")
+        self.logging = logging.getLogger("client_logger")
+        self.logging.info("set_model_params")
         self.model.load_state_dict(model_parameters)
     def test(self, test_data, device, args):
         #self._test(test_data=test_data, device=device)
         self._val(test_data, device, args)
         #pass
     def test_all_val_datasets(self, test_data, device, args):
+        self.logging = logging.getLogger("client_logger")
         
         test_data_list = [test_data         , args.test_dataloader_new      , args.test_dataloader_merged   ]
         test_data_desc = args.data_desc  
@@ -53,12 +58,12 @@ class YOLOAggregator(ServerAggregator):
             if val_data==[]:
                 pass
             else:
-                logging.info(colorstr("bright_green","bold", \
+                self.logging.info(colorstr("bright_green","bold", \
                     f"\n\tValidating on {len(val_data.dataset.labels)} images {' '.join(data_desc.split('_'))} from {os.path.split(val_data.dataset.label_files[0])[0]}.\n"))
                     
-                logging.info(f"\n\tStart val on Server using {val_data.dataset.path}")
+                self.logging.info(f"\n\tStart val on Server using {val_data.dataset.path}")
                 
-                logging.info(colorstr("bright_yellow","bold", \
+                self.logging.info(colorstr("bright_yellow","bold", \
                     f"\n\t{args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}\n"))
                 
                 _results = self._val(val_data, device, args, data_desc)
@@ -68,6 +73,7 @@ class YOLOAggregator(ServerAggregator):
 
 
     def _val(self, test_data, device, args, data_desc=''):
+        self.logging = logging.getLogger("client_logger")
         data_dict = None
         save_dir = Path(args.save_dir)
         # save_dir = Path(args.opt["save_dir"])
@@ -79,7 +85,7 @@ class YOLOAggregator(ServerAggregator):
         # data_dict = data_dict or check_dataset(args.opt["data"])
         half, single_cls, plots = False, False, False
         host_id = int(list(args.client_id_list)[1])
-        logging.info(f"\n\t#########################| {args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}|############################\n")
+        self.logging.info(f"\n\t#########################| {args._model_desc} performs evaluation {' '.join(data_desc.split('_'))}|############################\n")
         results = []
         results, maps, _, ap50 = validate.run(data=data_dict,
                                         batch_size=args.batch_size,
@@ -160,16 +166,17 @@ class YOLOAggregator(ServerAggregator):
                     
         #         }
         #     )
-        logging.info(f"mAPs of all class in a list {maps}")
+        self.logging.info(f"mAPs of all class in a list {maps}")
         # mAP_list=dict()
         # if args.rank==0: mAP_list['server']
         return results
 
     def _test(self, test_data, device, args):
+        self.logging = logging.getLogger("client_logger")
         
         #results, maps = self._val(test_data, device, args)
         
-        logging.info("Evaluating on Trainer ID: {}".format(self.id))
+        self.logging.info("Evaluating on Trainer ID: {}".format(self.id))
         model = self.model
         args = self.args
 
@@ -180,7 +187,7 @@ class YOLOAggregator(ServerAggregator):
         }
 
         if not test_data:
-            logging.info("No test data for this trainer")
+            self.logging.info("No test data for this trainer")
             return test_metrics
 
         model.eval()
@@ -354,7 +361,7 @@ class YOLOAggregator(ServerAggregator):
 
         # all metrics
         # metrics = (mp, mr, map50, map, *(loss.cpu() / len(test_data)).tolist()), maps, t
-        # logging.info(f"Test metrics: {metrics}")
+        # self.logging.info(f"Test metrics: {metrics}")
 
         fedml.mlops.log(
             {
@@ -385,17 +392,18 @@ class YOLOAggregator(ServerAggregator):
             "test_total": len(test_data),
             "test_loss": sum((loss.cpu() / len(test_data)).tolist()),
         }
-        logging.info(f"Test metrics: {test_metrics}")
+        self.logging.info(f"Test metrics: {test_metrics}")
         return test_metrics
 
     def test_all(self, args=None) -> bool:
+        self.logging = logging.getLogger("client_logger")
         if args.round_idx is not None:
             self.round_idx = args.round_idx
-            logging.info(f"round_idx: {self.round_idx}")
+            self.logging.info(f"round_idx: {self.round_idx}")
             if (self.round_idx + 1) % self.args.server_checkpoint_interval == 0:
                 ckpt = {'model': copy.deepcopy(self.model).half(),
                         'optimizer': []}
-                logging.info(f"Saving model at round {self.round_idx}")
+                self.logging.info(f"Saving model at round {self.round_idx}")
                 torch.save(
                     ckpt,
                     self.args.save_dir / "weights" / f"aggr_model_{self.round_idx}.pt",

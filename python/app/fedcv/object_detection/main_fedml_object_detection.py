@@ -1,3 +1,7 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
+
 import fedml
 from fedml import FedMLRunner
 from model.init_yolo import init_yolo

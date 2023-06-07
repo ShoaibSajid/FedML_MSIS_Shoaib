@@ -148,7 +148,8 @@ def create_dataloader(
     )  # only DataLoader allows for attribute updates
     generator = torch.Generator()
     generator.manual_seed(6148914691236517205+rank)
-    logging.info(f"\nNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
+    _logging = logging.getLogger("client_logger")
+    _logging.info(f"\nNNNNNNNNNNNNNNNNNNN| Number of Test Data {dataset} |NNNNNNNNNNNNNNNNNNNN\n")
     return (
         loader(
             dataset,
@@ -907,8 +908,13 @@ def load_partition_data_coco(args, hyp, model):
         args.weights,
     )
 
+    _logging = logging.getLogger("client_logger")
     with open(args.data_conf) as f:
         data_dict = yaml.load(f, Loader=yaml.FullLoader)  # data dict
+        
+    __dir = Path(args.save_dir)
+    with open(__dir / "data_conf.yaml", "w") as f:
+        yaml.dump(data_dict, f, sort_keys=False)
 
     train_path = data_dict["train"]
     test_path = data_dict["val"]
@@ -965,9 +971,9 @@ def load_partition_data_coco(args, hyp, model):
         client_idx = int(args.process_id) - 1
 
         if args.use_same_training_on_all_clients: 
-            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[0]}")
+            _logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[0]}")
         else:
-            logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[args.rank-1]}")
+            _logging.info(f"{client_idx}: net_dataidx_map trainer: {net_dataidx_map_train[args.rank-1]}")
             
         # Train Dataloader
         dataloader, dataset = create_dataloader(

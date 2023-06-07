@@ -4,7 +4,7 @@ dcommon_args:
   scenario: "horizontal"
   using_mlops: false
   config_version: release
-  project: "runs/train/BDD_Server_4Clients_SelfTraining" # yolo
+  project: "runs/train/BDD_Server_4Clients_SelfTraining_Yolov5n_May1_Run2" # yolo
   exist_ok: true # yolo
 
 environment_args:
@@ -17,7 +17,7 @@ train_args:
   client_num_per_round: 4
   comm_round: 50
   epochs: 10
-  batch_size: 32
+  batch_size: 128
   client_optimizer: sgd
   lr: 0.01
   weight_decay: 0.0005
@@ -62,7 +62,8 @@ data_args:
   data_cache_dir: ./fedcv_data
   partition_method: "homo"
   partition_alpha: 0.5
-  data_conf: "./data/3class_bdd.yaml" # yolo
+  # data_conf: "./data/3class_bdd.yaml" # yolo   
+  data_conf: "./config/multi_domain/data/3class_bdd.yaml" # yolo   
   # data_conf: "./data/3class_bdd_cleaned.yaml" # yolo
   img_size: [640, 640] # [640, 640]
 
@@ -70,8 +71,8 @@ data_args:
 model_args:
   model: "yolov5" # "yolov5"
   class_num: 3
-  # yolo_cfg: "./model/yolov5/models/yolov5n.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
-  yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
+  yolo_cfg: "./model/yolov5/models/yolov5n.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
+  # yolo_cfg: "./model/yolov5/models/yolov5s.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   # yolo_cfg: "./model/yolov5/models/yolov5m.yaml" # "./model/yolov6/configs/yolov6s.py" # yolo
   yolo_hyp: "./config/hyps/hyp.scratch.yaml" # yolo
   yolo_opt: "./runs/train/opt.yaml"
@@ -89,32 +90,33 @@ new_data_args:
   # new_data_conf: "./data/3class_agroverse.yaml"
   # new_data: "waymo_cleaned"
   # new_data_conf: "./data/3class_waymo_cleaned.yaml"
-  # new_data: "waymo"
-  # new_data_conf: "./data/3class_waymo.yaml"
-  new_data: "bdd"
-  new_data_conf: "./data/bdd_full.yaml"
+  new_data: "waymo"
+  new_data_conf: "./data/3class_waymo.yaml"
+  # new_data: "bdd"
+  # new_data_conf: "./data/bdd_full.yaml"
 
   new_data_min_rounds: -1
-  min_map_for_pseudo_generation: 0.4
+
+  min_map_for_pseudo_generation: 0.2
 
   use_new_data: True # False to use only original data from server
   use_new_data_pseudos: True # False to disable pseudo label generation
   use_new_data_recover: True # False to disable pseudo label recovery
   new_data_num_images_train: 5000
 
-  use_same_training_on_all_clients: True   #FIXME: VERY VERY VERY IMPORTANT
+  use_same_training_on_all_clients: True   #Use same data on all clients
 
   use_new_test_dataset: False  #Make while initial data loading. Disabled inside use_new_data function - hard coded
   new_data_num_images_test: 1000 # [] for full validation data
-  start_id_test: 1 # [] for random -- Only when choosing partial val data
+  start_id_test: [] # [] for random -- Only when choosing partial val data
   val_on: 0 # Perform server evaluation on  0-Old, 1-New, 2-Merged
 
   # multidomain: True
-  use_update_from_server: True
+  use_update_from_server: False
   
-  use_best_from_server_clients: True
+  use_best_from_server_clients: False
   keep_server_model_history: False
-  keep_client_model_history: True
+  keep_client_model_history: False
 
   ValClientsOnServer: False
 
@@ -133,10 +135,12 @@ new_data_args:
   # run_name: "Train_BDD20kGT_Waymo5k_GT_10EpR"
   # run_name: "Train_BDD20kGT_50E"
   # name: "Train_BDD20kGT_50E" # yolo
-  name: "Self-BDD-GT70_PD5_trk-C4" # yolo
-  wandb_project: "FedML_BDD_SelfTraining_S-4C_70-5"
+  # name: "Self-BDD-GT70_PD-RC5_Val10" # yolo
+  name: "Self-BDD-GT30-Waymo-5K-PD-RC" # yolo
+  # wandb_project: "FedML_BDD_SelfTraining_S-4C_70-10"
   # wandb_project: "FedML-MultiDomain"
   # wandb_project: "FedML-Testing"
+  wandb_project: "FedML-SingleClients-Yolov5n-May1-Run2"
 
   # Variable Initialization
   RoundxEpoch: 0
