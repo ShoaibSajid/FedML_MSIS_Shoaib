@@ -1,0 +1,18 @@
+
+path: ../../
+# train: ../../../../3class_bdd/3class_bdd_train.txt
+# train: ../../../../3class_bdd/train10k.txt
+train: ../../../../3class_bdd/train30k.txt
+# train: ../../../../3class_bdd/train50.txt
+# train: ../../../../3class_bdd/train35k_zafar.txt
+# train: ../../../../3class_bdd/train_20k_zafar.txt
+# train: ../../../../3class_bdd/train_10K.txt  
+val: ../../../../3class_bdd/3class_bdd_val.txt
+# val: ../../../../3class_bdd/val10k.txt
+# val: ../../../../3class_bdd/val50.txt
+# val: ../../../../3class_bdd/val_1K.txt
+test: ../../../../3class_bdd/3class_bdd_val.txt
+
+nc: 3
+
+names: ['vehicle', 'rider', 'pedestrian']

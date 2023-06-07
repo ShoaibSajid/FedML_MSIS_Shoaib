@@ -1,0 +1,18 @@
+
+path: ../../
+# train: ../../../../3class_waymo/3class_waymo_train.txt
+# train: ../../../../3class_bdd/train50.txt
+# train: ../../../../3class_bdd/train35k_zafar.txt
+# train: ../../../../3class_waymo/train10k.txt
+train: ../../../../3class_waymo/train30k.txt
+# train: ../../../../3class_bdd/train_20k_zafar.txt
+# train: ../../../../3class_bdd/train_10K.txt  
+# val: ../../../../3class_waymo/3class_waymo_val.txt
+# val: ../../../../3class_bdd/val50.txt
+# val: ../../../../3class_bdd/val_1K.txt
+val: ../../../../3class_waymo/val10k.txt
+test: ../../../../3class_waymo/3class_waymo_val.txt
+
+nc: 3
+
+names: ['vehicle', 'rider', 'pedestrian']

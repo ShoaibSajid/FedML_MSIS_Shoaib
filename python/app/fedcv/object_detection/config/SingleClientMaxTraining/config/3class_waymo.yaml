@@ -1,0 +1,19 @@
+data_args:
+
+  # name: "MultiDomain_Server" # yolo
+  # dataset: "3class_bdd_server"
+  # data_conf: "config/multi_domain/data/3class_bdd_server.yaml" # yolo
+
+  # name: "MultiDomain_BDD" # yolo
+  # dataset: "3class_bdd"
+  # data_conf: "config/multi_domain/data/3class_bdd.yaml" # yolo
+
+  # name: "MultiDomain_Waymo" # yolo
+  name: "SingleClientFull_Waymo" # yolo
+  wandb_project: "FedML-MultiDomain"
+  dataset: "3class_waymo"
+  data_conf: "config/multi_domain/data/3class_waymo.yaml" # yolo
+
+  # name: "MultiDomain_Agroverse" # yolo
+  # dataset: "3class_agroverse"
+  # data_conf: "config/multi_domain/data/3class_agroverse.yaml" # yolo
