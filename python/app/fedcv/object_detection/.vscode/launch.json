@@ -1,0 +1,531 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+
+
+		{
+			"name": " View Boxes ",
+			"type": "python",
+			"request": "launch",
+			"program": "Yolov5_DeepSORT_PseudoLabels/my_utils/view_boxes.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+		},
+
+		{
+			"name": " View Boxes - Server and Clients ",
+			"type": "python",
+			"request": "launch",
+			"program": "Yolov5_DeepSORT_PseudoLabels/my_utils/view_boxes_clients_server.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+		},
+
+		
+		{
+			"name": " Make running graphs ",
+			"type": "python",
+			"request": "launch",
+			"program": "Yolov5_DeepSORT_PseudoLabels/my_utils/make_graphs.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+		},
+
+		
+
+
+
+
+		
+		{
+			"name": " --------- ",
+		},
+		
+
+
+
+
+
+
+
+		
+		{
+			"name": " 3 Class BDD",
+		},
+
+
+		{
+			 "name": " Server - 3 class",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": ["--cf", "config/fedml_config_3class_bdd.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
+		},
+
+
+
+		
+		{
+			"name": " Client 1 - 3 class bdd ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "1", 
+				"--role", "client"]
+		},
+
+
+		
+		{
+			"name": " Client 2 - 3 class bdd ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "2", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 3 - 3 class bdd ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "3", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 4 - 3 class bdd ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "4", 
+				"--role", "client"]
+		},
+
+
+
+		
+
+
+		
+
+		
+		{
+			"name": " --------- ",
+		},
+		
+
+
+
+
+		
+
+
+		
+		{
+			"name": " Single Client",
+		},
+
+
+		{
+			 "name": "Single Client - Server",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/SingleClientMaxTraining/config/common_config.yaml", 
+				"--ccf"		, "config/SingleClientMaxTraining/config/3class_bdd_server.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "0", 
+				"--role"	, "server"]
+		},
+
+
+
+		
+		{
+			"name": " Single Client 1 - 3 class - BDD ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/SingleClientMaxTraining/config/common_config.yaml", 
+				"--ccf"		, "config/SingleClientMaxTraining/config/3class_bdd.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "1", 
+				"--role"	, "client"]
+		},
+
+
+		
+		{
+			"name": " Single Client 1 - 3 class - Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/SingleClientMaxTraining/config/common_config.yaml", 
+				"--ccf"		, "config/SingleClientMaxTraining/config/3class_waymo.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "1", 
+				"--role"	, "client"]
+		},
+
+		
+		{
+			"name": " Single Client 1 - 3 class - Agroverse ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/SingleClientMaxTraining/config/common_config.yaml", 
+				"--ccf"		, "config/SingleClientMaxTraining/config/3class_agroverse.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "1", 
+				"--role"	, "client"]
+		},
+
+
+
+		
+
+
+		
+
+		
+		{
+			"name": " --------- ",
+		},
+		
+
+
+
+
+		
+
+
+		
+		{
+			"name": " Multi Domain - BDD Waymo Agroverse - 3 Class",
+		},
+
+
+		{
+			 "name": "Multi Domain Server",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/multi_domain/config/3class_bdd_server.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "0", 
+				"--role"	, "server"]
+		},
+
+
+
+		
+		{
+			"name": " Client 1 - 3 class - BDD ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/multi_domain/config/3class_bdd.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "1", 
+				"--role"	, "client"]
+		},
+
+
+		
+		{
+			"name": " Client 2 - 3 class - Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/multi_domain/config/3class_waymo.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "2", 
+				"--role"	, "client"]
+		},
+
+		
+		{
+			"name": " Client 3 - 3 class - Agroverse ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf"		, "config/multi_domain/config/3class_agroverse.yaml", 
+				"--run_id"	, "yolov5", 
+				"--rank"	, "3", 
+				"--role"	, "client"]
+		},
+
+
+
+
+		
+		{
+			"name": " --------- ",
+		},
+		
+
+
+
+
+
+		
+		{
+			"name": " 3 Class BDD - Val on Waymo",
+		},
+
+
+		{
+			"name": " Server - 3 class- Val on Waymo",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": ["--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
+		},
+
+
+
+		
+		{
+			"name": " Client 1 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "1", 
+				"--role", "client"]
+		},
+
+
+		
+		{
+			"name": " Client 2 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "2", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 3 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "3", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 4 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "4", 
+				"--role", "client"]
+		},
+		
+		{
+			"name": " Client 5 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "5", 
+				"--role", "client"]
+		},
+		
+		{
+			"name": " Client 6 - 3 class - Val on Waymo ",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_3class_bdd_train_waymo_val.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "6", 
+				"--role", "client"]
+		},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		
+		
+		{
+			"name": " --------- ",
+		},
+		
+		{
+			"name": " BDD",
+		},
+
+		
+		{
+			"name": " Server - BDD",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": ["--cf", "config/fedml_config_bdd.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
+		},	
+
+
+
+		
+		{
+			"name": " Client 1 - BDD",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "1", 
+				"--role", "client"]
+		},
+
+
+		
+		{
+			"name": " Client 2 - BDD",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "2", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 3 - BDD",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "3", 
+				"--role", "client"]
+		},
+
+		
+		{
+			"name": " Client 4 - BDD",
+			"type": "python",
+			"request": "launch",
+			"program": "main_fedml_object_detection.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--cf", "config/fedml_config_bdd.yaml", 
+				"--run_id", "yolov5", 
+				"--rank", "4", 
+				"--role", "client"]
+		}
+	]
+}

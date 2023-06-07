@@ -1,0 +1,8 @@
+{
+	"git.ignoreLimitWarning": true,
+	"python.analysis.extraPaths": [
+		"./Yolov5_DeepSORT_PseudoLabels/deep_sort/deep/reid",
+		"./Yolov5_DeepSORT_PseudoLabels/deep_sort/deep/reid"
+	],
+	"python.pythonPath": "/home/gpuadmin/anaconda3/envs/yolov5/bin/python"
+}
