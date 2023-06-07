@@ -249,9 +249,9 @@ def init_yolo(args, device="cpu"):
     # Save run settings
     with open(save_dir / "hyp.yaml", "w") as f:
         yaml.dump(hyp, f, sort_keys=False)
-    with open(save_dir / "opt.yaml", "w") as f:
-        # save args as yaml
-        yaml.dump(args.__dict__, f, sort_keys=False)
+    # with open(save_dir / "opt.yaml", "w") as f:
+    #     # save args as yaml
+    #     yaml.dump(args.__dict__, f, sort_keys=False)
 
     args.hyp = hyp  # add hyperparameters
     args.wandb = wandb
