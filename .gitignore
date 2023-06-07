@@ -19,6 +19,9 @@ python/app/fedcv/object_detection/results_saved/
 
 # Shoaib
 
+*.mp4
+*.pt
+
 .DS_Store
 .idea
 .idea/*
