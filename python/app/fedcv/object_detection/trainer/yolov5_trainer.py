@@ -60,6 +60,7 @@ if use_shoaib_code:
 
     from data.data_loader import create_dataloader
     import yaml
+    from Yolov5_DeepSORT_PseudoLabels import copy_paste
     
     def use_new_data(args,model,compute_loss,train_data,test_data):
         
@@ -184,6 +185,17 @@ if use_shoaib_code:
                             new_data_path_train = args.new_pseudos_recovered_train
                             data_type="recovered pseudo labels"
 
+                            # copy-paste augmentation in new pseudo-data...
+                            # TODO: copy-paste arguments are hard-coded for now, add in configs
+                            print('Data balancing with copy-paste augmentation...')
+                            vehicleObj_path = '/home/shoaib/FedML_MSIS_Shoaib/object_data/vehicle'
+                            personObj_path = '/home/shoaib/FedML_MSIS_Shoaib/object_data/person'
+                            riderObj_path = '/home/shoaib/FedML_MSIS_Shoaib/object_data/rider'
+                            aug_param = {'num_vehicle': 2, 'num_rider': 4, 'num_person': 3}
+                            obj_data = {"veh":vehicleObj_path, "per": personObj_path,"rid": riderObj_path}
+                            num_imgs, num_GT_boxes, num_boxes_afterAug = copy_paste.run(new_data_path_train,
+                                                                                        obj_data,
+                                                                                        aug_param)
 
                         
                             # Test Dataset

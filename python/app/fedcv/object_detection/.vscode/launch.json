@@ -64,7 +64,7 @@
 			"program": "main_fedml_object_detection.py",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"args": ["--cf", "config/fedml_config_3class_bdd.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
+			"args": ["--cf", "config/fedml_config_3class_waymo.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
 		},
 
 
@@ -78,7 +78,7 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--cf", "config/fedml_config_3class_waymo.yaml", 
 				"--run_id", "yolov5", 
 				"--rank", "1", 
 				"--role", "client"]
@@ -94,7 +94,7 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--cf", "config/fedml_config_3class_waymo.yaml", 
 				"--run_id", "yolov5", 
 				"--rank", "2", 
 				"--role", "client"]
@@ -109,7 +109,7 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--cf", "config/fedml_config_3class_waymo.yaml", 
 				"--run_id", "yolov5", 
 				"--rank", "3", 
 				"--role", "client"]
@@ -124,7 +124,7 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				"--cf", "config/fedml_config_3class_bdd.yaml", 
+				"--cf", "config/fedml_config_3class_waymo.yaml", 
 				"--run_id", "yolov5", 
 				"--rank", "4", 
 				"--role", "client"]
@@ -462,7 +462,7 @@
 			"program": "main_fedml_object_detection.py",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"args": ["--cf", "config/fedml_config_bdd.yaml", "--run_id", "yolov5", "--rank", "0", "--role", "server"]
+			"args": ["--cf", "config/BDD-8Clients/3class_bdd.yaml", "--run_id", "yolov5", "--role", "server", "--rank", "0"]
 		},	
 
 

@@ -17,4 +17,4 @@ mapping_config5_1_shoaib:
 mapping_config6_1_shoaib:
   compute: [0,0,1,1,1,1,1,1]  
 mapping_config8_1:
-  compute: [0,0,2,1,2,1,2,1]  
+  compute: [2,1,1,1,1,1,1,1]  

@@ -84,7 +84,7 @@ class FedMLAggregator(object):
 
 
     def check_whether_all_receive(self):
-        print("Check")
+        # print("Check")
         self.logging.debug("client_num = {}".format(self.client_num))
         for idx in range(self.client_num):
             if not self.flag_client_model_uploaded_dict[idx]:
