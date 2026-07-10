@@ -76,12 +76,10 @@ For cross-silo (multi-process / multi-node) runs and full reproduction settings,
 
 ## Datasets
 
-Three autonomous-driving datasets, reduced to 3 shared classes (`vehicle`, `rider`,
-`pedestrian`):
+Three autonomous-driving datasets, reduced to 4 shared classes:
 
-- [BDD100K](https://bdd-data.berkeley.edu/) — labeled source domain
-- [Waymo Open](https://waymo.com/open/) — unlabeled target domain (pseudo-labeled)
-- [Cityscapes](https://www.cityscapes-dataset.com/) — cross-domain evaluation
+- [BDD100K](https://bdd-data.berkeley.edu/) 
+- [Cityscapes](https://www.cityscapes-dataset.com/)
 
 Data is split across 10 clients using the FedCV object-frequency non-IID protocol
 (arXiv:2111.11066, Sec. 7.1.2).
