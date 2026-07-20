@@ -1,0 +1,35 @@
+---
+description: Strict code-review-graph first policy for FedCV object detection work
+globs: python/app/fedcv/object_detection/**
+alwaysApply: true
+---
+
+# Object Detection: Code-Review-Graph First (Strict)
+
+When working under `python/app/fedcv/object_detection/`, **always use code-review-graph MCP tools before Grep, Glob, or Read**.
+
+## Required workflow
+
+1. **Start every exploration** with `get_minimal_context_tool` or `semantic_search_nodes_tool`.
+2. **Trace relationships** with `query_graph_tool` (`callers_of`, `callees_of`, `imports_of`, `tests_for`).
+3. **Understand execution** with `list_flows_tool` + `get_flow_tool` or `traverse_graph_tool`.
+4. **Assess impact** with `get_impact_radius_tool` / `get_affected_flows_tool` before edits.
+5. **Get source snippets** with `get_review_context_tool` (preferred over reading whole files).
+
+## Fallback to Read/Grep/Glob only when
+
+- Graph returns 0 results for the query
+- Target is non-Python (shell scripts, YAML, markdown) and graph does not index it
+- Graph tool schema fails or graph is not built (`build_or_update_graph_tool` first)
+
+## Key pipeline nodes (use graph to expand)
+
+- Entry: `main_fedml_object_detection.py` → `init_yolo` → `FedMLRunner.run()`
+- Pseudo labels: `YOLOv5Trainer.train` → `use_new_data` → `pseudo_labels` → `val_pseudos.run`
+- Recovery: `use_new_data` → `recover_labels` → `trackv2_from_file.detect` + merge
+- Metrics: `YOLOv5Trainer._val` → `val.run` (precision, recall, mAP@50, mAP)
+
+## Do not
+
+- Read large files line-by-line without graph context first
+- Skip graph when reviewing or modifying trainer / pseudo-label / recovery code
